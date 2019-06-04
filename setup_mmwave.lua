@@ -3,7 +3,7 @@
 info = debug.getinfo(1,'S');
 file_path = (info.source);
 file_path = string.gsub(file_path, "@","");
-file_path = string.gsub(file_path, "DataCaptureDemo_xWR.lua","");
+file_path = string.gsub(file_path, "setup_mmwave.lua","");
 fw_path   = file_path.."..\\..\\rf_eval_firmware"
 
 --Export bit operation file
