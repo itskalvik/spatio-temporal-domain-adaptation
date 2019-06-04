@@ -17,7 +17,7 @@ res, efuseES1device = ar1.ReadRegister(0xFFFFE210, 0, 31)
 efuseES2ES3Device = bit_and(efusedevice, 0x03FC0000)
 efuseES2ES3Device = bit_rshift(efuseES2ES3Device, 18)
 
---if part number is zero then those are ES1 devices 
+--if part number is zero then those are ES1 devices
 if(efuseES2ES3Device == 0) then
 	if (bit_and(efuseES1device, 3) == 0) then
 		partId = 1243
@@ -47,7 +47,7 @@ else
 	else
 		WriteToLog("Inavlid Device part number in ES2 and ES3 devices\n" ..partId)
     end
-end 
+end
 
 --ES version
 res, ESVersion = ar1.ReadRegister(0xFFFFE218, 0, 31)
@@ -119,7 +119,7 @@ else
 end
 RSTD.Sleep(1000)
 
-if (partId == 1642) then
+if ((partId == 1642) or (partId == 1443)) then
     if (ar1.LPModConfig(0, 1) == 0) then
         WriteToLog("LPModConfig Success\n", "green")
     else
@@ -170,13 +170,13 @@ elseif ((partId == 1243) or (partId == 1443)) then
 end
 RSTD.Sleep(1000)
 
-if((partId == 1642) or (partId == 1843)) then
+if((partId == 1642) or (partId == 1843) or (partId == 1443)) then
     if(ar1.ProfileConfig(0, 77, 60, 6, 60, 0, 0, 0, 0, 0, 0, 15.015, 0, 256, 5000, 0, 0, 30) == 0) then
         WriteToLog("ProfileConfig Success\n", "green")
     else
         WriteToLog("ProfileConfig failure\n", "red")
     end
-elseif((partId == 1243) or (partId == 1443)) then
+elseif((partId == 1243)) then
     if(ar1.ProfileConfig(0, 77, 60, 6, 60, 0, 0, 0, 0, 0, 0, 15.015, 0, 256, 5000, 0, 0, 30) == 0) then
         WriteToLog("ProfileConfig Success\n", "green")
     else
@@ -250,7 +250,7 @@ RSTD.Sleep(1000)
 
 --Trigger frame
 ar1.StartFrame()
-RSTD.Sleep(2000)
+RSTD.Sleep(8000)
 
 --Packet reorder utility processing the Raw_ADC_data
 WriteToLog("Please wait for a few seconds for Packet reorder utility processing .....!!!! \n", "green")
@@ -258,8 +258,10 @@ ar1.PacketReorderZeroFill(Raw_data_path, adc_data_path, pkt_log_path)
 RSTD.Sleep(10000)
 WriteToLog("Packet reorder utility processing done.....!!!! \n", "green")
 
+--Run python script to setup Jsetsons for CSI data collection
 os.execute("python.exe C:\\Users\\mmwave\\Desktop\\setup_csi.py")
--- --Post process the Capture RAW ADC data
--- ar1.StartMatlabPostProc(adc_data_path)
--- WriteToLog("Please wait for a few seconds for matlab post processing .....!!!! \n", "green")
--- RSTD.Sleep(10000)
+
+--Post process the Capture RAW ADC data
+--ar1.StartMatlabPostProc(adc_data_path)
+--WriteToLog("Please wait for a few seconds for matlab post processing .....!!!! \n", "green")
+--RSTD.Sleep(10000)
