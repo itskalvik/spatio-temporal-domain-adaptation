@@ -259,7 +259,7 @@ RSTD.Sleep(10000)
 WriteToLog("Packet reorder utility processing done.....!!!! \n", "green")
 
 --Run python script to setup Jsetsons for CSI data collection
-os.execute("python.exe C:\\Users\\mmwave\\Desktop\\setup_csi.py")
+--os.execute("python.exe C:\\Users\\mmwave\\Desktop\\setup_csi.py")
 
 --Post process the Capture RAW ADC data
 --ar1.StartMatlabPostProc(adc_data_path)
