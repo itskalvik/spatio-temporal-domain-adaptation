@@ -1,5 +1,4 @@
 --BSS and MSS firmware download
-
 info = debug.getinfo(1,'S');
 file_path = (info.source);
 file_path = string.gsub(file_path, "@","");
@@ -41,7 +40,7 @@ else
 		partId = 1642
 	elseif(efuseES2ES3Device == 0x70 or efuseES2ES3Device == 0x71 or efuseES2ES3Device == 0xD0 or efuseES2ES3Device == 0x05) then
 		partId = 1843
-	elseif(efuseES2ES3Device == 0xE0) then
+	elseif(efuseES2ES3Device == 0xE0 or efuseES2ES3Device == 0xE1 or efuseES2ES3Device == 0xE2 or efuseES2ES3Device == 0xE3 or efuseES2ES3Device == 0xE4) then
 		partId = 6843
 		ar1.frequencyBandSelection("60G")
 	else
@@ -53,11 +52,9 @@ end
 res, ESVersion = ar1.ReadRegister(0xFFFFE218, 0, 31)
 ESVersion = bit_and(ESVersion, 15)
 
---ADC_Data file and Raw file and PacketReorder utitlity log file path
+--ADC_Data file path
 data_path     = file_path.."..\\PostProc"
 adc_data_path = data_path.."\\adc_data.bin"
-Raw_data_path = data_path.."\\adc_data_Raw_0.bin"
-pkt_log_path  = data_path.."\\pktlogfile.txt"
 
 -- Download Firmware
 if(partId == 1642) then
@@ -76,17 +73,16 @@ elseif(partId == 6843) then
     BSS_FW    = fw_path.."\\radarss\\xwr68xx_radarss.bin"
     MSS_FW    = fw_path.."\\masterss\\xwr68xx_masterss.bin"
 else
-    WriteToLog("Inavlid Device partId FW\n" ..partId)
-    WriteToLog("Inavlid Device ESVersion\n" ..ESVersion)
+    WriteToLog("Invalid Device partId FW\n" ..partId)
+    WriteToLog("Invalid Device ESVersion\n" ..ESVersion)
 end
 
--- Download BSS Firmware(AR16xx)
+-- Download BSS Firmware
 if (ar1.DownloadBSSFw(BSS_FW) == 0) then
     WriteToLog("BSS FW Download Success\n", "green")
 else
     WriteToLog("BSS FW Download failure\n", "red")
 end
-RSTD.Sleep(2000)
 
 -- Download MSS Firmware
 if (ar1.DownloadMSSFw(MSS_FW) == 0) then
@@ -94,7 +90,6 @@ if (ar1.DownloadMSSFw(MSS_FW) == 0) then
 else
     WriteToLog("MSS FW Download failure\n", "red")
 end
-RSTD.Sleep(2000)
 
 -- SPI Connect
 if (ar1.PowerOn(1, 1000, 0, 0) == 0) then
@@ -102,7 +97,6 @@ if (ar1.PowerOn(1, 1000, 0, 0) == 0) then
 else
    WriteToLog("Power On failure\n", "red")
 end
-RSTD.Sleep(1000)
 
 -- RF Power UP
 if (ar1.RfEnable() == 0) then
@@ -110,16 +104,14 @@ if (ar1.RfEnable() == 0) then
 else
     WriteToLog("RF Enable failure\n", "red")
 end
-RSTD.Sleep(1000)
 
 if (ar1.ChanNAdcConfig(1, 1, 0, 1, 1, 1, 1, 2, 1, 0) == 0) then
     WriteToLog("ChanNAdcConfig Success\n", "green")
 else
     WriteToLog("ChanNAdcConfig failure\n", "red")
 end
-RSTD.Sleep(1000)
 
-if ((partId == 1642) or (partId == 1443)) then
+if (partId == 1642) then
     if (ar1.LPModConfig(0, 1) == 0) then
         WriteToLog("LPModConfig Success\n", "green")
     else
@@ -132,13 +124,13 @@ else
         WriteToLog("Regualar mode Cfg failure\n", "red")
     end
 end
-RSTD.Sleep(2000)
 
 if (ar1.RfInit() == 0) then
     WriteToLog("RfInit Success\n", "green")
 else
     WriteToLog("RfInit failure\n", "red")
 end
+
 RSTD.Sleep(1000)
 
 if (ar1.DataPathConfig(1, 1, 0) == 0) then
@@ -146,14 +138,12 @@ if (ar1.DataPathConfig(1, 1, 0) == 0) then
 else
     WriteToLog("DataPathConfig failure\n", "red")
 end
-RSTD.Sleep(1000)
 
 if (ar1.LvdsClkConfig(1, 1) == 0) then
     WriteToLog("LvdsClkConfig Success\n", "green")
 else
     WriteToLog("LvdsClkConfig failure\n", "red")
 end
-RSTD.Sleep(1000)
 
 if((partId == 1642) or (partId == 1843) or (partId == 6843)) then
     if (ar1.LVDSLaneConfig(0, 1, 1, 0, 0, 1, 0, 0) == 0) then
@@ -168,42 +158,44 @@ elseif ((partId == 1243) or (partId == 1443)) then
         WriteToLog("LVDSLaneConfig failure\n", "red")
     end
 end
-RSTD.Sleep(1000)
 
-if((partId == 1642) or (partId == 1843) or (partId == 1443)) then
+if((partId == 1642) or (partId == 1843)) then
     if(ar1.ProfileConfig(0, 77, 60, 6, 60, 0, 0, 0, 0, 0, 0, 15.015, 0, 256, 5000, 0, 0, 30) == 0) then
         WriteToLog("ProfileConfig Success\n", "green")
     else
         WriteToLog("ProfileConfig failure\n", "red")
     end
-elseif((partId == 1243)) then
-    if(ar1.ProfileConfig(0, 77, 60, 6, 60, 0, 0, 0, 0, 0, 0, 15.015, 0, 256, 5000, 0, 0, 30) == 0) then
+elseif((partId == 1243) or (partId == 1443)) then
+    if(ar1.ProfileConfig(0, 77, 100, 6, 60, 0, 0, 0, 0, 0, 0, 29.982, 0, 256, 10000, 0, 0, 30) == 0) then
         WriteToLog("ProfileConfig Success\n", "green")
     else
         WriteToLog("ProfileConfig failure\n", "red")
     end
 elseif(partId == 6843) then
-    if(ar1.ProfileConfig(0, 77, 60, 6, 60, 0, 0, 0, 0, 0, 0, 15.015, 0, 256, 5000, 0, 0, 30) == 0) then
+    if(ar1.ProfileConfig(0, 60.25, 100, 6, 60, 0, 0, 0, 0, 0, 0, 29.982, 0, 256, 10000, 0, 131072, 30) == 0) then
 		WriteToLog("ProfileConfig Success\n", "green")
     else
         WriteToLog("ProfileConfig failure\n", "red")
     end
 end
-RSTD.Sleep(1000)
 
 if (ar1.ChirpConfig(0, 0, 0, 0, 0, 0, 0, 1, 1, 0) == 0) then
     WriteToLog("ChirpConfig Success\n", "green")
 else
     WriteToLog("ChirpConfig failure\n", "red")
 end
-RSTD.Sleep(1000)
 
-if (ar1.FrameConfig(0, 0, 200, 230, 33, 0, 1) == 0) then
+if (ar1.DisableTestSource(0) == 0) then
+    WriteToLog("Disabling Test Source Success\n", "green")
+else
+    WriteToLog("Disabling Test Source failure\n", "red")
+end
+
+if (ar1.FrameConfig(0, 0, 200, 230, 33, 0, 0, 1) == 0) then
     WriteToLog("FrameConfig Success\n", "green")
 else
     WriteToLog("FrameConfig failure\n", "red")
 end
-RSTD.Sleep(1000)
 
 -- select Device type
 if (ar1.SelectCaptureDevice("DCA1000") == 0) then
@@ -211,7 +203,6 @@ if (ar1.SelectCaptureDevice("DCA1000") == 0) then
 else
     WriteToLog("SelectCaptureDevice failure\n", "red")
 end
-RSTD.Sleep(1000)
 
 --DATA CAPTURE CARD API
 if (ar1.CaptureCardConfig_EthInit("192.168.33.30", "192.168.33.180", "12:34:56:78:90:12", 4096, 4098) == 0) then
@@ -219,7 +210,6 @@ if (ar1.CaptureCardConfig_EthInit("192.168.33.30", "192.168.33.180", "12:34:56:7
 else
     WriteToLog("CaptureCardConfig_EthInit failure\n", "red")
 end
-RSTD.Sleep(1000)
 
 --AWR12xx or xWR14xx-1, xWR16xx or xWR18xx or xWR68xx- 2 (second parameter indicates the device type)
 if ((partId == 1642) or (partId == 1843) or (partId == 6843)) then
@@ -235,31 +225,19 @@ elseif ((partId == 1243) or (partId == 1443)) then
         WriteToLog("CaptureCardConfig_Mode failure\n", "red")
     end
 end
-RSTD.Sleep(1000)
 
 if (ar1.CaptureCardConfig_PacketDelay(25) == 0) then
     WriteToLog("CaptureCardConfig_PacketDelay Success\n", "green")
 else
     WriteToLog("CaptureCardConfig_PacketDelay failure\n", "red")
 end
-RSTD.Sleep(1000)
 
 --Start Record ADC data
-ar1.CaptureCardConfig_StartRecord(adc_data_path, 1)
-RSTD.Sleep(1000)
+--ar1.CaptureCardConfig_StartRecord(adc_data_path, 1)
+--RSTD.Sleep(1000)
 
 --Trigger frame
-ar1.StartFrame()
-RSTD.Sleep(8000)
-
---Packet reorder utility processing the Raw_ADC_data
-WriteToLog("Please wait for a few seconds for Packet reorder utility processing .....!!!! \n", "green")
-ar1.PacketReorderZeroFill(Raw_data_path, adc_data_path, pkt_log_path)
-RSTD.Sleep(10000)
-WriteToLog("Packet reorder utility processing done.....!!!! \n", "green")
-
---Run python script to setup Jsetsons for CSI data collection
---os.execute("python.exe C:\\Users\\mmwave\\Desktop\\setup_csi.py")
+--RSTD.Sleep(10000)
 
 --Post process the Capture RAW ADC data
 --ar1.StartMatlabPostProc(adc_data_path)
