@@ -21,10 +21,11 @@ end
 fclose(fid);
 fileSize = size(adcData, 1);
 
+
 % real data reshape, filesize = numADCSamples*numChirps
 if isReal
     numChirps = fileSize/numADCSamples/numRX;
-    LVDS = zeros(1, fileSize);1642
+    LVDS = zeros(1, fileSize);
     %create column for each chirp
     LVDS = reshape(adcData, numADCSamples*numRX, numChirps);
     %each row is data from one chirp
@@ -32,7 +33,8 @@ if isReal
 else
     % for complex data
     % filesize = 2 * numADCSamples*numChirps
-    numChirps = fileSize/2/numADCSamples/numRX;
+    numChirps = floor(fileSize/2/numADCSamples/numRX);
+    fileSize = 2*numADCSamples*numRX*numChirps;
     LVDS = zeros(1, fileSize/2);
     %combine real and imaginary part into complex data
     %read in file: 2I is followed by 2Q

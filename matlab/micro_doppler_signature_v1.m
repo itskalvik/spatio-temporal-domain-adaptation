@@ -2,16 +2,16 @@ clc;
 clear;
 close all;
 
-%iqmat = load('16_25_07_t2.mat');
-%iqmat = iqmat.ans;
-iqmat = readDCA1000_1642("/mnt/archive2/target/server/ppinyoan/06_21/14_20_57.bin");
+iqmat = readDCA1000_1642("/mnt/archive3/pose/kjakkala/10_14/17_30_08/adc_data_Raw_6.bin");
 
 fc = 77e9;
 c = 3e8;
 lambda = c/fc;
 BW = 900.9*1e6;
-
-max_range = 7; % maximum range
+Nsweep = 230;  %number of chirps per frame
+ADC_num = 256; %number of ADC samples per chirp
+frame_period = 33.0*1e-3; % frame periodility  
+max_range = 5; % maximum range
 min_range = 0.1; % minimum range
 disp(['Bandwidth ', num2str(BW), ' range:', num2str(min_range), ' to ', num2str(max_range), ' meter'])
 
@@ -20,21 +20,18 @@ S_new_all = 0; % we will aggregate the spectorgram of four antennas
 for n =1:1  %compute spectrogram of each antenna
     disp(['Calculating micro-doppler for rx antenna ', num2str(n)])
     r1 = iqmat(n,:);
-    num_frame = 200; %number of frames
+    total_data = size(iqmat, 2); %total data we collected
+    num_frame = floor(total_data/(Nsweep*ADC_num)); %number of frames
     num_frame_start = 50; %starting number of frames
-    num_frame_end = 200; %starting number of frames
+    num_frame_end = num_frame; %starting number of frames
     num_frame_test = num_frame_end - num_frame_start + 1;
-    Nsweep = 230;  %number of chirps per frame
-    ADC_num = 256; %number of ADC samples per chirp
-    total_data = 11776000; %total data we collected
-    frame_period = 33*1e-3; % frame periodility 
     sampling_f = 1/(frame_period/Nsweep); % the real chrip transmitting frequency
     chirp_duration = frame_period/Nsweep; % the estimated chirp cycle 
-    data_per_frame = total_data/num_frame; % 
     range_res = c/(2*BW); % calculate range resolution
     vel_res = lambda/(2*frame_period); % calculate velocity resolution
 
     % Re-arrange them for frames
+    r1 = r1(1:end, 1:ADC_num*Nsweep*num_frame);
     mat = reshape(r1, [], num_frame);
 
     new_waveform = [];
