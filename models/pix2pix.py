@@ -24,7 +24,7 @@ class InstanceNormalization(tf.keras.layers.Layer):
         initializer='zeros',
         trainable=True)
 
-  def call(self, x):
+  def call(self, x, training=False):
     mean, variance = tf.nn.moments(x, axes=[1, 2], keepdims=True)
     inv = tf.math.rsqrt(variance + self.epsilon)
     normalized = (x - mean) * inv
@@ -62,43 +62,42 @@ def downsample(filters, size, norm_type='batchnorm', apply_norm=True):
 
   return result
 
+"""Upsamples an input.
 
-def upsample(filters, size, norm_type='batchnorm', apply_dropout=False):
-  """Upsamples an input.
+Conv2DTranspose => Batchnorm => Relu
 
-  Conv2DTranspose => Batchnorm => Dropout => Relu
+Args:
+filters: number of filters
+size: filter size
+norm_type: Normalization type; either 'batchnorm' or 'instancenorm'.
+activation: activation function to use.
 
-  Args:
-    filters: number of filters
-    size: filter size
-    norm_type: Normalization type; either 'batchnorm' or 'instancenorm'.
-    apply_dropout: If True, adds the dropout layer
+Returns:
+Upsample Sequential Model
+"""
+class Upsample(tf.keras.Model):
+  def __init__(self, filters, size, norm_type='batchnorm', activation='relu'):
+    super().__init__(name='upsample')
+    initializer = tf.random_normal_initializer(0., 0.02)
 
-  Returns:
-    Upsample Sequential Model
-  """
+    self.conv = tf.keras.layers.Conv2DTranspose(filters, size,
+                                                 strides=2,
+                                                 padding='same',
+                                                 kernel_initializer=initializer,
+                                                 use_bias=False)
 
-  initializer = tf.random_normal_initializer(0., 0.02)
+    if norm_type.lower() == 'batchnorm':
+        self.norm = tf.keras.layers.BatchNormalization()
+    elif norm_type.lower() == 'instancenorm':
+        self.norm = InstanceNormalization()
 
-  result = tf.keras.Sequential()
-  result.add(
-      tf.keras.layers.Conv2DTranspose(filters, size, strides=2,
-                                      padding='same',
-                                      kernel_initializer=initializer,
-                                      use_bias=False))
+    self.activation = tf.keras.layers.Activation(activation)
 
-  if norm_type.lower() == 'batchnorm':
-    result.add(tf.keras.layers.BatchNormalization())
-  elif norm_type.lower() == 'instancenorm':
-    result.add(InstanceNormalization())
-
-  if apply_dropout:
-    result.add(tf.keras.layers.Dropout(0.5))
-
-  result.add(tf.keras.layers.ReLU())
-
-  return result
-
+  def call(self, x, training=False):
+    x = self.conv(x)
+    x = self.norm(x, training)
+    x = self.activation(x)
+    return x
 
 def UNetGenerator(input_channels, output_channels, norm_type='batchnorm'):
   """Modified u-net generator model (https://arxiv.org/abs/1611.07004).
@@ -207,4 +206,3 @@ def PatchGanDiscriminator(input_channels, norm_type='batchnorm', target=True):
     return tf.keras.Model(inputs=[inp, tar], outputs=last)
   else:
     return tf.keras.Model(inputs=inp, outputs=last)
-
