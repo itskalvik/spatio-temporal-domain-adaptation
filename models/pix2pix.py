@@ -62,42 +62,42 @@ def downsample(filters, size, norm_type='batchnorm', apply_norm=True):
 
   return result
 
-"""Upsamples an input.
 
-Conv2DTranspose => Batchnorm => Relu
+def upsample(filters, size, norm_type='batchnorm', apply_dropout=False):
+  """Upsamples an input.
 
-Args:
-filters: number of filters
-size: filter size
-norm_type: Normalization type; either 'batchnorm' or 'instancenorm'.
-activation: activation function to use.
+  Conv2DTranspose => Batchnorm => Dropout => Relu
 
-Returns:
-Upsample Sequential Model
-"""
-class Upsample(tf.keras.Model):
-  def __init__(self, filters, size, norm_type='batchnorm', activation='relu'):
-    super().__init__(name='upsample')
-    initializer = tf.random_normal_initializer(0., 0.02)
+  Args:
+    filters: number of filters
+    size: filter size
+    norm_type: Normalization type; either 'batchnorm' or 'instancenorm'.
+    apply_dropout: If True, adds the dropout layer
 
-    self.conv = tf.keras.layers.Conv2DTranspose(filters, size,
-                                                 strides=2,
-                                                 padding='same',
-                                                 kernel_initializer=initializer,
-                                                 use_bias=False)
+  Returns:
+    Upsample Sequential Model
+  """
 
-    if norm_type.lower() == 'batchnorm':
-        self.norm = tf.keras.layers.BatchNormalization()
-    elif norm_type.lower() == 'instancenorm':
-        self.norm = InstanceNormalization()
+  initializer = tf.random_normal_initializer(0., 0.02)
 
-    self.activation = tf.keras.layers.Activation(activation)
+  result = tf.keras.Sequential()
+  result.add(
+      tf.keras.layers.Conv2DTranspose(filters, size, strides=2,
+                                      padding='same',
+                                      kernel_initializer=initializer,
+                                      use_bias=False))
 
-  def call(self, x, training=False):
-    x = self.conv(x)
-    x = self.norm(x, training)
-    x = self.activation(x)
-    return x
+  if norm_type.lower() == 'batchnorm':
+    result.add(tf.keras.layers.BatchNormalization())
+  elif norm_type.lower() == 'instancenorm':
+    result.add(InstanceNormalization())
+
+  if apply_dropout:
+    result.add(tf.keras.layers.Dropout(0.5))
+
+  result.add(tf.keras.layers.ReLU())
+
+  return result
 
 def UNetGenerator(input_channels, output_channels, norm_type='batchnorm'):
   """Modified u-net generator model (https://arxiv.org/abs/1611.07004).
@@ -122,9 +122,9 @@ def UNetGenerator(input_channels, output_channels, norm_type='batchnorm'):
   ]
 
   up_stack = [
-      upsample(512, 4, norm_type, apply_dropout=True),  # (bs, 2, 2, 1024)
-      upsample(512, 4, norm_type, apply_dropout=True),  # (bs, 4, 4, 1024)
-      upsample(512, 4, norm_type, apply_dropout=True),  # (bs, 8, 8, 1024)
+      upsample(512, 4, norm_type),  # (bs, 2, 2, 1024)
+      upsample(512, 4, norm_type),  # (bs, 4, 4, 1024)
+      upsample(512, 4, norm_type),  # (bs, 8, 8, 1024)
       upsample(512, 4, norm_type),  # (bs, 16, 16, 1024)
       upsample(256, 4, norm_type),  # (bs, 32, 32, 512)
       upsample(128, 4, norm_type),  # (bs, 64, 64, 256)
