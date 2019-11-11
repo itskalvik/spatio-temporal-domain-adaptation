@@ -226,12 +226,12 @@ class ResNet50(tf.keras.Model):
                                         name='conv1')
     if regularizer.lower() == 'dropout':
         self.bn1 = tf.keras.layers.Dropout(rate=dropout_rate,
-                                           name=bn_name_base + 'bn_conv1')
+                                           name='bn_conv1')
     elif regularizer.lower() == 'batchnorm':
         self.bn1 = tf.keras.layers.BatchNormalization(axis=bn_axis,
                                                        momentum=BATCH_NORM_DECAY,
                                                        epsilon=BATCH_NORM_EPSILON,
-                                                       name=bn_name_base + 'bn_conv1')
+                                                       name='bn_conv1')
     self.act1 = tf.keras.layers.Activation(self.activation, name=self.activation+'1')
     self.max_pool1 = tf.keras.layers.MaxPooling2D((3, 3),
                                                   strides=(2, 2),
