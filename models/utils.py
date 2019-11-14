@@ -123,7 +123,7 @@ def get_trg_data(filename, src_classes, train_trg_days):
 
   X_test_trg = X_data_trg[y_data_trg[:, 1] >= train_trg_days]
   y_test_trg = y_data_trg[y_data_trg[:, 1] >= train_trg_days, 0]
-  y_test_trg = np.eye(len(src_classes))[y_test_trg]
+  y_test_trg = np.array([src_classes.index(trg_classes[y_test_trg[i]]) for i in range(y_test_trg.shape[0])])
 
   if(X_train_trg.shape[0] != 0):
     X_train_trg, trg_mean = mean_center(X_train_trg)
@@ -132,9 +132,11 @@ def get_trg_data(filename, src_classes, train_trg_days):
 
     X_test_trg, _    = mean_center(X_test_trg, trg_mean)
     X_test_trg, _, _ = normalize(X_test_trg, trg_min, trg_ptp)
+    y_test_trg = np.eye(len(src_classes))[y_test_trg]
   else:
     X_test_trg, _    = mean_center(X_test_trg)
     X_test_trg, _, _ = normalize(X_test_trg)
+    y_test_trg = np.eye(len(src_classes))[y_test_trg]
 
   X_train_trg = X_train_trg.astype(np.float32)
   y_train_trg = y_train_trg.astype(np.uint8)
