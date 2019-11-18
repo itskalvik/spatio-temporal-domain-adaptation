@@ -242,8 +242,8 @@ class ResNet50(tf.keras.Model):
     self.blocks.append(ConvBlock(3, [32, 32, 128], strides=(1, 1), stage=2, block='a', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
     self.blocks.append(IdentityBlock(3, [32, 32, 128], stage=2, block='b', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
 
-    self.blocks.append(ConvBlock(3, [64, 64, 256], stage=3, block='a', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
-    self.blocks.append(IdentityBlock(3, [64, 64, 256], stage=3, block='b', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
+    self.blocks.append(ConvBlock(3, [32, 32, 128], stage=3, block='a', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
+    self.blocks.append(IdentityBlock(3, [32, 32, 128], stage=3, block='b', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
 
     self.blocks.append(ConvBlock(3, [64, 64, 256], stage=4, block='a', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
     self.blocks.append(IdentityBlock(3, [64, 64, 256], stage=4, block='b', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))

@@ -5,6 +5,139 @@ import tensorflow as tf
 from skimage.transform import resize
 from sklearn.model_selection import train_test_split
 
+
+class anneal():
+  def __init__(self, init_val, final_val, delta = 5):
+    self.init_val = tf.constant(init_val, dtype="float32")
+    self.final_val = tf.constant(final_val, dtype="float32")
+    self.delta = tf.constant(delta, dtype="float32")
+    self.lam = tf.Variable(0, dtype="float32")
+
+  def __call__(self, progress):
+    self.lam = ((2/(1 + tf.exp(-self.delta*progress))) - 1)
+    return ((1-self.lam)*self.init_val) + (self.lam*self.final_val)
+
+
+'''
+Center Loss
+'''
+class CenterLoss():
+    def __init__(self, batch_size, num_classes, len_features, alpha):
+      self.centers = tf.Variable(tf.zeros([num_classes, len_features]),
+                                 dtype=tf.float32,
+                                 trainable=False)
+      self.alpha = alpha
+      self.num_classes = num_classes
+      self.batch_size = batch_size
+      self.margin = tf.constant(100, dtype="float32")
+      self.norm = lambda x: tf.reduce_sum(tf.square(x), 1)
+      self.EdgeWeights = tf.ones((self.num_classes,self.num_classes)) - \
+                                  tf.eye(self.num_classes)
+
+    def get_center_loss(self, features, labels, alpha=None):
+      if alpha is not None:
+          self.alpha = alpha
+
+      labels = tf.reshape(tf.argmax(labels, axis=-1), [-1])
+      centers0 = tf.math.unsorted_segment_mean(features,
+                                               labels,
+                                               self.num_classes)
+      center_pairwise_dist = tf.transpose(self.norm(tf.expand_dims(centers0, 2) - \
+                                                    tf.transpose(centers0)))
+      self.inter_loss = tf.math.reduce_sum(tf.multiply(tf.maximum(0.0, self.margin - center_pairwise_dist),
+                                                       self.EdgeWeights))
+
+      unique_label, unique_idx, unique_count = tf.unique_with_counts(labels)
+      appear_times = tf.gather(unique_count, unique_idx)
+      appear_times = tf.reshape(appear_times, [-1, 1])
+      centers_batch = tf.gather(self.centers, labels)
+      diff = centers_batch - features
+      diff /= tf.cast((1 + appear_times), tf.float32)
+      diff *= self.alpha
+      self.centers_update_op = tf.compat.v1.scatter_sub(self.centers,
+                                                        labels,
+                                                        diff)
+
+      self.intra_loss   = tf.nn.l2_loss(features - centers_batch)
+      self.center_loss  = self.intra_loss + self.inter_loss
+      self.center_loss /= (self.num_classes*self.batch_size+self.num_classes*self.num_classes)
+      return self.center_loss
+
+
+'''
+MixUp: Regularization Strategy
+https://arxiv.org/abs/1710.09412
+args:
+    x: 4D numpy array, with shape [batch_size, height, width, channels]
+    y: 2D numpy array, with shape [batch_size, dim_logits]
+    alpha: int, alpha parameter for beta distribution
+output:
+    data: numpy arrays, cutmix features and labels
+'''
+def mixup(x, y, alpha=1):
+    x = tf.cast(x, tf.float32)
+    y = tf.cast(y, tf.float32)
+
+    # random sample the lambda value from beta distribution.
+    batch_size = x.get_shape().as_list()[0]
+    weight     = np.random.beta(alpha, alpha, batch_size)
+    x_weight   = weight.reshape(batch_size, 1, 1, 1)
+    y_weight   = weight.reshape(batch_size, 1)
+
+    # Perform the mixup.
+    indices  = tf.random.shuffle(tf.range(batch_size))
+    features = (x * x_weight) + (tf.gather(x, indices) * (1 - x_weight))
+    labels   = (y * y_weight) + (tf.gather(y, indices) * (1 - y_weight))
+
+    return tf.stop_gradient(features), tf.stop_gradient(labels)
+
+
+'''
+CutMix: Regularization Strategy to Train Strong Classifiers with Localizable Features
+https://arxiv.org/abs/1905.04899
+args:
+    x: 4D numpy array, with shape [batch_size, height, width, channels]
+    y: 2D numpy array, with shape [batch_size, dim_logits]
+    alpha: int, alpha parameter for beta distribution
+output:
+    data: numpy arrays, cutmix features and labels
+'''
+def cutmix(x, y, alpha=1):
+    x = tf.cast(x, tf.float32)
+    y = tf.cast(y, tf.float32)
+
+    shape = x.get_shape()
+    batch_size = shape[0]
+    image_h    = shape[1]
+    image_w    = shape[2]
+    channels   = shape[3]
+
+    lam = np.random.beta(alpha, alpha)
+    cx = tf.random.uniform(shape=[],
+                           minval=0,
+                           maxval=image_w,
+                           dtype=tf.float32)
+    cy = tf.random.uniform(shape=[],
+                           minval=0,
+                           maxval=image_h,
+                           dtype=tf.float32)
+    w  = image_w * tf.sqrt(1 - lam)
+    h  = image_h * tf.sqrt(1 - lam)
+
+    x0 = tf.cast(tf.round(tf.maximum(cx - w / 2, 0)), tf.int32)
+    x1 = tf.cast(tf.round(tf.minimum(cx + w / 2, image_w)), tf.int32)
+    y0 = tf.cast(tf.round(tf.maximum(cy - h / 2, 0)), tf.int32)
+    y1 = tf.cast(tf.round(tf.minimum(cy + h / 2, image_h)), tf.int32)
+
+    mask = tf.pad(tf.ones([batch_size, y1-y0, x1-x0, channels], dtype=tf.bool),
+                  [[0, 0], [y0, image_h-y1], [x0, image_w-x1], [0, 0]])
+    indices = tf.random.shuffle(tf.range(batch_size))
+    features = (x * tf.cast(tf.logical_not(mask), x.dtype)) + (tf.gather(x, indices) * tf.cast(mask, x.dtype))
+    labels  = (y * lam) + (tf.gather(y, indices) * (1 - lam))
+
+    return tf.stop_gradient(features), tf.stop_gradient(labels)
+
+
 '''
 Resizes images in batches, only 2nd and 3rd dimensions will be resized
 args:
