@@ -1,32 +1,85 @@
-from sklearn.model_selection import train_test_split
-from sklearn.decomposition import PCA
-from joblib import Parallel, delayed 
+from skimage.filters import threshold_otsu
+from joblib import Parallel, delayed
+from scipy import ndimage as ndi
+import matplotlib.pyplot as plt
 from skimage import transform
 from scipy.io import loadmat
-from scipy import ndimage
+import itertools,operator
 from scipy import signal
+from tqdm import tqdm
 import numpy as np
 import argparse
-import pickle
 import time
 import h5py
 import math
 import sys
+import cv2
 import os
 
-def read_samples(dataset_path, endswith=".bin", num_keep=100):
-  datapaths, labels = list(), list()
-  classes = sorted([f for f in os.listdir(dataset_path) if os.path.isdir(os.path.join(dataset_path, f)) and not f.startswith('.')])
+def readDCA1000_1642(fileName):
+  # global variables
+  #change based on sensor config
+  numADCSamples = 256; # number of ADC samples per chirp
+  numADCBits = 16; # number of ADC bits per sample
+  numRX = 4; # number of receivers
+  numLanes = 2; # do not change. number of lanes is always 2
+  isReal = 0; # set to 1 if real only data, 0 if complex data0
 
+  # read .bin file
+  with open(fileName, "rb") as fid:
+      adcData = np.array(np.frombuffer(fid.read(), dtype=np.int16))
+
+  # if 12 or 14 bits ADC per sample compensate for sign extension
+  if numADCBits != 16:
+      l_max = 2**(numADCBits-1)-1
+      adcData[adcData > l_max] -= 2**numADCBits
+
+  fileSize = adcData.shape[0]
+
+  # real data reshape, filesize = numADCSamples*numChirps
+  if isReal:
+    numChirps = int(fileSize/numADCSamples/numRX)
+    #create column for each chirp
+    LVDS = np.reshape(adcData, (numADCSamples*numRX, numChirps), order='F').transpose()
+  else:
+    # for complex data
+    # filesize = 2 * numADCSamples*numChirps
+    numChirps = int(fileSize/2/numADCSamples/numRX)
+    LVDS = np.zeros(int(fileSize/2)).astype(np.complex)
+    # combine real and imaginary part into complex data
+    # read in file: 2I is followed by 2Q
+    LVDS[::2]  = adcData[::4]  + np.complex(0,1)*adcData[2::4]
+    LVDS[1::2] = adcData[1::4] + np.complex(0,1)*adcData[3::4]
+    # create column for each chirp
+    # each row is data from one chirp
+    LVDS = np.reshape(LVDS, (numADCSamples*numRX, numChirps), order='F').transpose()
+
+  # organize data per RX
+  adcData = np.zeros((numRX,numChirps*numADCSamples)).astype(np.complex)
+  for row in range(numRX):
+      for i in range(numChirps):
+        adcData[row, i*numADCSamples:((i+1)*numADCSamples)] = LVDS[i, row*numADCSamples:((row+1)*numADCSamples)]
+
+  return adcData
+
+def read_samples(dataset_path, classes=None, num_samples=50, num_days=5, endswith=".bin"):
+  if classes is None:
+      classes = sorted([f for f in os.listdir(dataset_path) if os.path.isdir(os.path.join(dataset_path, f)) and not f.startswith('.')])
+  datapaths, labels = list(), list()
   for c in classes:
     c_dir = os.path.join(dataset_path, c)
-    dates = sorted(os.listdir(c_dir))
+    dates = sorted(os.listdir(c_dir))[:num_days]
+    if (len(dates)) < num_days:
+      raise NameError("Not enough days for subject: {}".format(c))
     for date in dates:
-      samples = os.listdir(os.path.join(c_dir, date))
+      samples = sorted(os.listdir(os.path.join(c_dir, date)))
+      samples = [sample for sample in samples if sample.endswith(endswith)]
+      samples = samples[:num_samples]
+      if (len(samples)) < num_samples:
+        raise NameError("Not enough samples for subject: {}".format(c))
       for sample in samples:
-        if sample.endswith(endswith):
-          datapaths.append(os.path.join(c_dir, date, sample))
-          labels.append([classes.index(c), dates.index(date)])
+        datapaths.append(os.path.join(c_dir, date, sample))
+        labels.append([classes.index(c), dates.index(date)])
   return datapaths, labels, classes
 
 def fspecial_gaussian(size=15, sigma=2):
@@ -34,132 +87,98 @@ def fspecial_gaussian(size=15, sigma=2):
     kernel /= np.sum(kernel)
     return kernel
 
-def smooth(x,window_len):
-    s=np.r_[x[window_len-1:0:-1],x,x[-2:-window_len-1:-1]]
-    w=np.hanning(window_len)
-    y=np.convolve(w/w.sum(),s,mode='valid')
-    return y[(window_len//2):-(window_len//2)]
+def get_range_mask(range_map):
+  og_shape = range_map.shape
 
-def cfar(x, num_train, num_guard, rate_fa):
-    num_cells = x.size
-    num_train_half = round(num_train / 2)
-    num_guard_half = round(num_guard / 2)
-    num_side = num_train_half + num_guard_half
- 
-    alpha = num_train*(rate_fa**(-1/num_train) - 1)
-    
-    peak_idx = []
-    for i in range(num_side, num_cells - num_side):
-        
-        if i != i-num_side+np.argmax(x[i-num_side:i+num_side+1]): 
-            continue
-        
-        sum1 = np.sum(x[i-num_side:i+num_side+1])
-        sum2 = np.sum(x[i-num_guard_half:i+num_guard_half+1]) 
-        p_noise = (sum1 - sum2) / num_train 
-        threshold = alpha * p_noise
-        
-        if x[i] > threshold: 
-            peak_idx.append(i)
-    
-    peak_idx = np.array(peak_idx, dtype=int)
-    
-    return peak_idx
+  #resize
+  range_map = transform.resize(range_map, (224, 224), mode='reflect', anti_aliasing=True)
 
-def detect_peak(data):
-    data = np.abs(data[250:])
+  #smooth and threshold
+  range_map = ndi.gaussian_filter(range_map, sigma=5)
+  thresh = threshold_otsu(range_map)
+  range_map = range_map > thresh
 
-    for _ in range(6):
-        data -= np.mean(data)
-        data[np.where(data < 0)] = 0
-    data = smooth(data, 2001)
+  #find largest contour
+  contours = cv2.findContours(range_map.astype(np.uint8),cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)[-2]
 
-    if(np.var(data) < 5000):
-        return False, [] 
-    
-    peak_idx = cfar(data, num_train=200, num_guard=50, rate_fa=1)
-    k_inds = peak_idx[np.where(data[peak_idx] > (np.max(data)/3))]
-    k_inds.sort()
-    k_inds+=250
-    
-    if (len(k_inds) > 0):
-        return True, k_inds
+  c = max(contours, key = cv2.contourArea)
+  mask = np.zeros_like(range_map).astype(np.uint8)
+  cv2.drawContours(mask, c, -1, (255, 255, 255), 1)
+
+  return transform.resize(mask, og_shape, mode='reflect', anti_aliasing=True)
+
+def get_spectrogram(fname, label, mat_file=False):
+    if mat_file:
+      iq_data = loadmat(fname)["ans"]
     else:
-        return False, []
+      if (os.path.getsize(fname) == 188416000):
+        iq_data = readDCA1000_1642(fname)
+      else:
+        return np.array([]), label
 
-def get_spectrogram(fname, label):
-    slices = []
-    iq_data = loadmat(fname)["iqmat"]
-    
     data = iq_data[0,:].reshape((-1, num_frame), order="F")
 
     tmp = []
     for j in range(num_frame):
         tmp.append(data[:, j].reshape((num_adc, num_chirp), order="F"))
     data = np.hstack(tmp)
-    
+
     data = (data.transpose()*signal.hann(num_adc)).transpose()
     range_matrix = np.fft.fft(data, axis=0)
-        
+
     b, a = signal.butter(8, 50/(fs/2), 'high')
-    start = False
-    frame_slices = []
-    start_id = range_min
-    end_id = range_max
-    direc = None
-    for j in range(range_min, range_max):
-        range_matrix[j, :] = signal.lfilter(b, a, range_matrix[j,:], axis=0)    
-        tmp_status, peak_ids = detect_peak(range_matrix[j, :])
-        
-        if (start and not tmp_status):
-            end_id = j
-            break
-        elif tmp_status and not start:
-            start = True
-            start_id = j
-            if (peak_ids[-1] > range_matrix[j, :].shape[-1]/2):
-                direc = 0
-            else:
-                direc = -1
-            init_window = peak_ids[direc]
-            frame_slices.append(init_window)
-                        
-            range_matrix[j, :init_window-attention_window_length] = 0
-            range_matrix[j, init_window+attention_window_length:] = 0
-        elif start:            
-            if (direc == 0):
-                init_window = peak_ids[np.where(np.logical_and(peak_ids >= init_window-4*attention_window_length, peak_ids <= (init_window+attention_window_length)))]
-            else:
-                init_window = peak_ids[np.where(np.logical_and(peak_ids <= init_window+4*attention_window_length, peak_ids >= (init_window-attention_window_length)))]         
-            
-            if len(init_window) == 0:
-                end_id = j
-                break
-                
-            init_window = init_window[direc]
-            frame_slices.append(init_window)
-            
-            range_matrix[j, :init_window-attention_window_length] = 0
-            range_matrix[j, init_window+attention_window_length:] = 0
-            
-    if(len(frame_slices) < 1):
+    range_matrix = range_matrix[range_min:range_max]
+    for j in range(range_matrix.shape[0]):
+        range_matrix[j, :] = signal.lfilter(b, a, range_matrix[j,:], axis=0)
+
+    range_matrix_tmp = np.abs(range_matrix)
+    range_matrix_tmp = (20*np.log(range_matrix_tmp/np.max(range_matrix_tmp)))
+    range_mask       = get_range_mask(range_matrix_tmp)
+
+    start = 0
+    while not (np.where(range_mask[start] > 0)[0].shape[0] > 0):
+      start += 1
+    range_matrix = range_matrix[start:]
+
+    range_matrix_tmp = np.abs(range_matrix)
+    range_matrix_tmp = (20*np.log(range_matrix_tmp/np.max(range_matrix_tmp)))
+    range_mask       = get_range_mask(range_matrix_tmp)
+
+    if (range_matrix.shape[0] < 1):
+      return np.array([]), label
+
+    if (np.where(range_mask[0] > 0)[0].shape[0] > 0):
+      direc = -1*(np.where(range_mask[0] > 0)[0][0] < range_mask.shape[1]/2)
+    else:
+      return np.array([]), label
+    for j in range(range_matrix.shape[0]):
+      if not (len(np.where(range_mask[j] > 0)[0]) > 0):
         return np.array([]), label
 
-    range_matrix = range_matrix[start_id:end_id]    
+      if direc:
+        range_matrix[j, :np.where(range_mask[j] > 0)[0][direc]-5*attention_window_length] = 0
+        range_matrix[j, np.where(range_mask[j] > 0)[0][direc]:] = 0
+      else:
+        range_matrix[j, :np.where(range_mask[j] > 0)[0][direc]] = 0
+        range_matrix[j, np.where(range_mask[j] > 0)[0][direc]+5*attention_window_length:] = 0
+
+    if(range_matrix.shape[0] < 1):
+        return np.array([]), label
+
     for j in range(range_matrix.shape[0]):
-        f_vec, t, S = signal.spectrogram(range_matrix[j,:], 
-                                        fs=fs, 
+        f_vec, t, S = signal.spectrogram(range_matrix[j,:],
+                                        fs=fs,
                                         window=spec_window,
-                                        noverlap=noverlap, 
+                                        noverlap=noverlap,
                                         nfft=nfft,
                                         return_onesided=False,
                                         mode="complex")
-        
+
         if (j == 0):
             S_new_all = np.abs(S)
         else:
             S_new_all += np.abs(S)
-            
+
     S_new_all = np.roll(S_new_all, int(S_new_all.shape[0]/2), axis=0)
 
     sums = np.sum(S_new_all, 0)
@@ -173,32 +192,59 @@ def get_spectrogram(fname, label):
     S_new_all -= np.mean(S_new_all)
     S_new_all[np.where(S_new_all < 0)] = 0
 
-    S_new_all = ndimage.convolve(S_new_all, fspecial_gaussian(), mode='nearest')
+    S_new_all = ndi.convolve(S_new_all, fspecial_gaussian(), mode='nearest')
     S_new_all[np.where(S_new_all <= 0)] = 1e-9
     S_new_all = 20*np.log10(S_new_all)
 
+    #get longest sequence of good data
+    tmp = ~(S_new_all.astype(np.int32)+180).any(axis=0) == 0
+    r = max((list(y) for (x,y) in itertools.groupby((enumerate(tmp)),operator.itemgetter(1)) if x == 1), key=len)
+    S_new_all = S_new_all[:, r[0][0]:r[-1][0]]
+
     if direc == 0:
-        S_new_all = S_new_all[128:int(S_new_all.shape[0]/2), int((min(frame_slices)-attention_window_length)/16):int((max(frame_slices)+attention_window_length)/16)]
-        S_new_all = S_new_all[:, int(S_new_all.shape[1]/2)-512:int(S_new_all.shape[1]/2)+512]
+      S_new_all = S_new_all[128:int(S_new_all.shape[0]/2), int(S_new_all.shape[1]/2)-512:int(S_new_all.shape[1]/2)+512]
     elif direc == -1:
-        S_new_all = S_new_all[int(S_new_all.shape[0]/2):-128, int((min(frame_slices)-attention_window_length)/16):int((max(frame_slices)+attention_window_length)/16)]
-        S_new_all = S_new_all[:, int(S_new_all.shape[1]/2)-512:int(S_new_all.shape[1]/2)+512]      
-        S_new_all = np.flip(S_new_all, axis=0)
-        S_new_all = np.flip(S_new_all, axis=1)
-        
+      S_new_all = S_new_all[int(S_new_all.shape[0]/2):-128, int(S_new_all.shape[1]/2)-512:int(S_new_all.shape[1]/2)+512]
+      S_new_all = np.flip(S_new_all, axis=0)
+      S_new_all = np.flip(S_new_all, axis=1)
+
     if (S_new_all.shape != (128, 1024)):
-        return np.array([]), label
-    
-    return S_new_all, label      
+      return np.array([]), label
+
+    return S_new_all, label
+
+def get_parser():
+    # parameter priority: command line > config > default
+    parser = argparse.ArgumentParser(description='Preprocess mmWave Data')
+    parser.add_argument(
+        '--src-path',
+        default="/media/kjakkala/NAS/MMWAVE_1642_10days/target/server",
+        help='path to root folder of dataset')
+    parser.add_argument(
+        '--dataset-file',
+        default="/home/kjakkala/mmwave/data/server_5days.h5",
+        help='path to h5 file to hold preprocessed dataset')
+    parser.add_argument(
+        '--num-samples',
+        type=int,
+        default=50,
+        help='number of samples to keep per day')
+    parser.add_argument(
+        '--num-days',
+        type=int,
+        default=5,
+        help='number of days to keep per person')
+    return parser
 
 #-------------------------------------------------------------------#
+
 c = 3e8
-max_range = 5
+max_range = 6
 min_range = 1
 band_width = 900.9*1e6
 range_res = c/(2*band_width)
 range_min = int(np.ceil(min_range/range_res))-1
-range_max = int(np.ceil(max_range/range_res))-1
+range_max = int(np.ceil(max_range/range_res))-6
 
 num_frame = 200
 num_adc = 256
@@ -211,34 +257,43 @@ nfft = 512
 noverlap = nfft - 16
 spec_window = signal.windows.chebwin(nfft, 120)
 attention_window_length = int(np.ceil(0.2/chirp_duration))
+
+classes = ['aali26', 'apandit5', 'hhah', 'hmacharl', 'kjakkala', 'pjanakar', 'ppinyoan', 'shuang9', 'upattnai', 'wrang']
 #-------------------------------------------------------------------#
 
-dataset_file = "/home/kjakkala/mmwave/data/mmwave_source.h5"
-src_path = "/mnt/archive2/source/"
+if __name__ == "__main__":
+    parser = get_parser()
+    arg = parser.parse_args()
 
-files, labels, classes = read_samples(src_path, ".mat")
-classes = [n.encode("ascii", "ignore") for n in classes]
+    files, labels, classes = read_samples(arg.src_path,
+                                          classes=classes,
+                                          num_samples=arg.num_samples,
+                                          num_days=arg.num_days,
+                                          endswith=".bin")
+    classes = [n.encode("ascii", "ignore") for n in classes]
 
-dset_X, dset_y = zip(*Parallel(n_jobs=-1)(delayed(get_spectrogram)(files[i], labels[i]) for i in range(len(files))))
-dset_X = np.array(dset_X)
-dset_y = np.array(dset_y)
-print(dset_y.shape, dset_X.shape)
+    dset_X, dset_y = zip(*Parallel(n_jobs=-1)(delayed(get_spectrogram)(files[i], labels[i]) for i in tqdm(range(len(files)))))
 
-delete_inds = []
-for ind in range(len(dset_X)):
-    if (dset_X[ind].shape != (128, 1024)):
-        delete_inds.append(ind)
-        print(files[ind])
-print(len(delete_inds))
-dset_X = np.delete(dset_X, delete_inds, 0)
-dset_y = np.delete(dset_y, delete_inds, 0)
+    dset_X = np.array(dset_X)
+    dset_y = np.array(dset_y)
+    print(dset_y.shape, dset_X.shape)
 
-print(dset_y.shape, dset_X.shape)
-dset_X = np.asarray(dset_X)
-dset_y = np.asarray(dset_y)
+    delete_inds = []
+    for ind in range(len(dset_X)):
+        if (dset_X[ind].shape != (128, 1024)):
+            delete_inds.append(ind)
+            print(files[ind])
 
-hf = h5py.File("/home/kjakkala/neuralwave/data/mmwave_spectorgram.h5", 'w')
-hf.create_dataset('X_data', data=dset_X)
-hf.create_dataset('y_data', data=dset_y)
-hf.create_dataset('labels', data=classes)
-hf.close()
+    print(len(delete_inds))
+
+    dset_X = np.delete(dset_X, delete_inds, 0)
+    dset_X = np.array(list(dset_X))
+    dset_y = np.delete(dset_y, delete_inds, 0)
+    dset_y = np.array(list(dset_y))
+    print(dset_y.shape, dset_X.shape)
+
+    hf = h5py.File(arg.dataset_file, 'w')
+    hf.create_dataset('X_data', data=dset_X)
+    hf.create_dataset('y_data', data=dset_y)
+    hf.create_dataset('classes', data=classes)
+    hf.close()
