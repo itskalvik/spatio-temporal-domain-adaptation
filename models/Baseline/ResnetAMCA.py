@@ -2,7 +2,7 @@ repo_path = "/users/kjakkala/mmwave"
 
 import os
 os.environ['CUDA_VISIBLE_DEVICES']='0'
-
+import argparse
 import sys
 sys.path.append(os.path.join(repo_path, 'models'))
 
@@ -13,19 +13,33 @@ from pix2pix import upsample
 import tensorflow as tf
 print(tf.__version__)
 
+def get_parser():
+    parser = argparse.ArgumentParser(description='')
+    parser.add_argument('--s', type=int, default=10)
+    parser.add_argument('--m', type=float, default=0.1)
+    parser.add_argument('--ca', type=float, default=1e-3)
+    parser.add_argument('--epochs', type=int, default=2000)
+    parser.add_argument('--init_lr', type=float, default=1e-3)
+    parser.add_argument('--num_features', type=int, default=256)
+    parser.add_argument('--activation_fn', default='selu')
+    return parser
+
+parser = get_parser()
+arg = parser.parse_args()
+
 dataset_path    = os.path.join(repo_path, 'data')
 num_classes     = 9
 batch_size      = 64
 train_src_days  = 3
 train_trg_days  = 0
 train_trg_env_days = 0
-epochs          = 2000
-init_lr         = 0.001
-num_features    = 256
-activation_fn   = 'selu'
-s               = 20
-m               = 0.25
-ca              = 1e-3
+epochs          = arg.epochs
+init_lr         = arg.init_lr
+num_features    = arg.num_features
+activation_fn   = arg.activation_fn
+s               = arg.s
+m               = arg.m
+ca              = arg.ca
 notes           = "AM_S-{}_M-{}_CA-{}_Baseline".format(s, m, ca)
 log_data = "classes-{}_bs-{}_train_src_days-{}_train_trg_days-{}_train_trgenv_days-{}_initlr-{}_num_feat-{}_act_fn-{}_{}".format(num_classes,
                                                                                                                                  batch_size,
@@ -154,7 +168,7 @@ def AM_logits(labels, logits, m, s):
   adjust_theta = s * tf.where(tf.equal(labels,1), phi, cos_theta)
   return adjust_theta
 
- source_train_acc     = tf.keras.metrics.CategoricalAccuracy(name='source_train_acc')
+source_train_acc     = tf.keras.metrics.CategoricalAccuracy(name='source_train_acc')
 source_test_acc      = tf.keras.metrics.CategoricalAccuracy(name='source_test_acc')
 office_test_acc      = tf.keras.metrics.CategoricalAccuracy(name='office_test_acc')
 server_test_acc      = tf.keras.metrics.CategoricalAccuracy(name='server_test_acc')
