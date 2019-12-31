@@ -262,7 +262,7 @@ Returns:
 """
 class ResNet50AMCA(tf.keras.Model):
   def __init__(self, num_classes, num_features, activation='relu',
-               regularizer='batchnorm', dropout_rate=0, ca_dacay=1e-3):
+               regularizer='batchnorm', dropout_rate=0, ca_decay=1e-3):
     super().__init__(name='generator')
     bn_axis = -1
     self.activation = activation
@@ -305,11 +305,11 @@ class ResNet50AMCA(tf.keras.Model):
                                      kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.01),
                                      kernel_regularizer=tf.keras.regularizers.l2(L2_WEIGHT_DECAY),
                                      bias_regularizer=tf.keras.regularizers.l2(L2_WEIGHT_DECAY),
-                                     activation_regularizer=ConstrictiveRegularizer(ca_dacay),
+                                     activity_regularizer=ConstrictiveRegularizer(ca_decay),
                                      name='fc1')
     self.logits = AMDense(num_classes,
                           kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.01),
-                          kernel_regularizer=ConstrictiveRegularizer(ca_dacay),
+                          kernel_regularizer=ConstrictiveRegularizer(ca_decay),
                           name='logits')
 
   def call(self, img_input, training=False):
@@ -325,4 +325,4 @@ class ResNet50AMCA(tf.keras.Model):
     fc1 = self.fc1(x)
     logits = self.logits(fc1)
 
-    return logits, fc1
+    return logits

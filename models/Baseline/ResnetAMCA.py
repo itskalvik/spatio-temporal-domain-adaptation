@@ -1,4 +1,4 @@
-repo_path = "/users/kjakkala/mmwave"
+repo_path = "/home/kjakkala/mmwave"
 
 import os
 os.environ['CUDA_VISIBLE_DEVICES']='0'
@@ -7,7 +7,7 @@ import sys
 sys.path.append(os.path.join(repo_path, 'models'))
 
 from utils import *
-from resnet import ResNet50
+from resnet_amca import ResNet50AMCA
 from pix2pix import upsample
 
 import tensorflow as tf
@@ -200,17 +200,17 @@ learning_rate  = tf.keras.optimizers.schedules.PolynomialDecay(init_lr,
                                                                decay_steps=(X_train_src.shape[0]//batch_size)*200,
                                                                end_learning_rate=init_lr*1e-2,
                                                                cycle=True)
-model      = ResNet50(num_classes, num_features, activation=activation_fn, ca_decay=ca)
+model      = ResNet50AMCA(num_classes, num_features, activation=activation_fn, ca_decay=ca)
 optimizer  = tf.keras.optimizers.Adam(learning_rate = learning_rate)
 
 summary_writer = tf.summary.create_file_writer(log_dir)
 
 m_anneal = tf.Variable(0, dtype="float32")
 for epoch in range(epochs):
-  m_anneal.assign(tf.minimum(m*((epoch*2)/1000.0), s))
+  m_anneal.assign(tf.minimum(m*((epoch*2)/1000.0), m))
 
   for source_data in src_train_set:
-    train_step(source_data[0], source_data[1], s_anneal, m_anneal)
+    train_step(source_data[0], source_data[1], s, m_anneal)
 
   for data in time_test_set:
     temporal_test_acc(test_step(data[0]), data[1])
