@@ -200,7 +200,7 @@ learning_rate  = tf.keras.optimizers.schedules.PolynomialDecay(init_lr,
                                                                decay_steps=(X_train_src.shape[0]//batch_size)*200,
                                                                end_learning_rate=init_lr*1e-2,
                                                                cycle=True)
-model      = ResNet50(num_classes, num_features, activation=activation_fn, ca_decay=ca_decay)
+model      = ResNet50(num_classes, num_features, activation=activation_fn, ca_decay=ca)
 optimizer  = tf.keras.optimizers.Adam(learning_rate = learning_rate)
 
 summary_writer = tf.summary.create_file_writer(log_dir)
