@@ -1,4 +1,4 @@
-repo_path = "/home/kjakkala/mmwave"
+repo_path = "/users/kjakkala/mmwave"
 
 import os
 os.environ['CUDA_VISIBLE_DEVICES']='0'
