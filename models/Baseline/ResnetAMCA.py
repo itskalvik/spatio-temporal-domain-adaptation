@@ -49,8 +49,7 @@ if __name__=='__main__':
     m               = arg.m
     ca              = arg.ca
     notes           = "AM_S-{}_M-{}_CA-{}_Baseline".format(s, m, ca)
-    log_data = "classes-{}_bs-{}_train_src_days-{}_train_trg_days-{}_train_\
-                trgenv_days-{}_initlr-{}_num_feat-{}_act_fn-{}_{}".format(
+    log_data = "classes-{}_bs-{}_train_src_days-{}_train_trg_days-{}_train_trgenv_days-{}_initlr-{}_num_feat-{}_act_fn-{}_{}".format(
                                                             num_classes,
                                                             batch_size,
                                                             train_src_days,
@@ -200,9 +199,8 @@ if __name__=='__main__':
     cross_entropy_loss   = tf.keras.metrics.Mean(name='cross_entropy_loss')
 
     @tf.function
-    def test_step(images, labels, s, m):
+    def test_step(images):
       logits = model(images, training=False)
-      logits = AM_logits(labels=labels, logits=logits, m=m, s=s)
       return tf.nn.softmax(logits)
 
     @tf.function
@@ -245,19 +243,19 @@ if __name__=='__main__':
         train_step(source_data[0], source_data[1], s, m_anneal)
 
       for data in time_test_set:
-        temporal_test_acc(test_step(data[0], data[1], s, m_anneal), data[1])
+        temporal_test_acc(test_step(data[0]), data[1])
 
       for data in src_test_set:
-        source_test_acc(test_step(data[0], data[1], s, m_anneal), data[1])
+        source_test_acc(test_step(data[0]), data[1])
 
       for data in office_test_set:
-        office_test_acc(test_step(data[0], data[1], s, m_anneal), data[1])
+        office_test_acc(test_step(data[0]), data[1])
 
       for data in server_test_set:
-        server_test_acc(test_step(data[0], data[1], s, m_anneal), data[1])
+        server_test_acc(test_step(data[0]), data[1])
 
       for data in conf_test_set:
-        conference_test_acc(test_step(data[0], data[1], s, m_anneal), data[1])
+        conference_test_acc(test_step(data[0]), data[1])
 
       with summary_writer.as_default():
         tf.summary.scalar("temporal_test_acc", temporal_test_acc.result(), step=epoch)
