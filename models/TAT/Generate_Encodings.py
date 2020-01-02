@@ -1,14 +1,51 @@
-repo_path = "/users/kjakkala/mmwave"
+repo_path = "/home/kjakkala/mmwave"
 
 import os
 import sys
 sys.path.append(os.path.join(repo_path, 'models'))
 from utils import *
 from resnet_amca import ResNet50AMCA
-import tensorflow as tf
 import numpy as np
 import argparse
 import h5py
+
+import tensorflow as tf
+from tensorflow.compat.v1 import ConfigProto
+from tensorflow.compat.v1 import InteractiveSession
+
+config = ConfigProto()
+config.gpu_options.allow_growth = True
+session = InteractiveSession(config=config)
+
+class ResNet50AMCA_embed(ResNet50AMCA):
+  def call(self, img_input, training=False):
+    x = self.conv1(img_input)
+    x = self.bn1(x, training=training)
+    x = self.act1(x)
+    x = self.max_pool1(x)
+
+    for block in self.blocks:
+      x = block(x, training=training)
+
+    x = self.avg_pool(x)
+    fc1 = self.fc1(x)
+    logits = self.logits(fc1)
+
+    return logits, fc1
+
+@tf.function
+def predict(images):
+  logits, fc1 = model(images, training=False)
+  return tf.nn.softmax(logits), fc1
+
+def get_acc_encodings(data, labels):
+  acc = tf.keras.metrics.CategoricalAccuracy(name='acc')
+  data_list = []
+  for i in range(len(data)):
+    logits, encodings = predict(np.expand_dims(data[i], axis=0))
+    data_list.append(np.array(encodings))
+    acc(logits, labels[i])
+  return np.squeeze(data_list), float(acc.result())
 
 def get_parser():
     parser = argparse.ArgumentParser(description='')
@@ -59,7 +96,7 @@ if __name__=='__main__':
                                                             activation_fn,
                                                             notes)
     log_dir = os.path.join(repo_path, 'logs/Baselines/AMCA/{}'.format(log_data))
-    checkpoint_path = os.path.join(repo_path, 'checkpoints/Baselines/ckpt')
+    checkpoint_path = os.path.join(repo_path, 'checkpoints/Baselines/AMCA')
     encodings_file  = os.path.join(repo_path, 'data/encodings.h5')
 
     '''
@@ -145,29 +182,15 @@ if __name__=='__main__':
     '''
     Generate encodings
     '''
-    @tf.function
-    def predict(images):
-      logits, fc1 = model(images, training=False)
-      return tf.nn.softmax(logits), fc1
-
-    model = ResNet50AMCA(num_classes,
-                         num_features,
-                         activation=activation_fn,
-                         ca_decay=ca)
+    model = ResNet50AMCA_embed(num_classes,
+                               num_features,
+                               activation=activation_fn,
+                               ca_decay=ca)
     ckpt  = tf.train.Checkpoint(model=model)
     ckpt_manager = tf.train.CheckpointManager(ckpt,
                                               checkpoint_path,
                                               max_to_keep=5)
     ckpt.restore(ckpt_manager.latest_checkpoint)
-
-    def get_acc_encodings(data, labels):
-      acc = tf.keras.metrics.CategoricalAccuracy(name='acc')
-      data_list = []
-      for i in range(len(data)):
-        logits, encodings = predict(np.expand_dims(data[i], axis=0))
-        data_list.append(np.array(encodings))
-        acc(logits, labels[i])
-      return np.squeeze(data_list), float(acc.result())
 
     X_train_src, X_train_src_acc  = get_acc_encodings(X_train_src, y_train_src)
     X_test_src,  X_test_src_acc   = get_acc_encodings(X_test_src, y_test_src)
