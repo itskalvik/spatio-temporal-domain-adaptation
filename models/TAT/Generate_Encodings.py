@@ -97,7 +97,7 @@ if __name__=='__main__':
                                                             notes)
     log_dir = os.path.join(repo_path, 'logs/Baselines/AMCA/{}'.format(log_data))
     checkpoint_path = os.path.join(repo_path, 'checkpoints/Baselines/AMCA')
-    encodings_file  = os.path.join(repo_path, 'data/encodings.h5')
+    encodings_file  = os.path.join(repo_path, 'data/encodings-conf.h5')
 
     '''
     Data Preprocess
@@ -171,8 +171,8 @@ if __name__=='__main__':
     print("Final shapes: ")
     print(X_train_src.shape, y_train_src.shape,  X_test_src.shape, y_test_src.shape, X_train_trg.shape, y_train_trg.shape, X_test_trg.shape, y_test_trg.shape)
 
-    X_train_conf,   y_train_conf,   X_test_conf,   y_test_conf   = get_trg_data(os.path.join(dataset_path, 'target_conf_data.h5'),   classes, 0)
-    X_train_server, y_train_server, X_test_server, y_test_server = get_trg_data(os.path.join(dataset_path, 'target_server_data.h5'), classes, train_trg_env_days)
+    X_train_conf,   y_train_conf,   X_test_conf,   y_test_conf   = get_trg_data(os.path.join(dataset_path, 'target_conf_data.h5'),   classes, train_trg_env_days)
+    X_train_server, y_train_server, X_test_server, y_test_server = get_trg_data(os.path.join(dataset_path, 'target_server_data.h5'), classes, 0)
     _             , _             , X_data_office, y_data_office = get_trg_data(os.path.join(dataset_path, 'target_office_data.h5'), classes, 0)
 
     print(X_train_conf.shape,   y_train_conf.shape,    X_test_conf.shape,   y_test_conf.shape)
