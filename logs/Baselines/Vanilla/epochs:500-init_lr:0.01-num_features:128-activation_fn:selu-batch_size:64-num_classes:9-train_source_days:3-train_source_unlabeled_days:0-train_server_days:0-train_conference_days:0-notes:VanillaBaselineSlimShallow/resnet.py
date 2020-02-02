@@ -4,54 +4,6 @@ L2_WEIGHT_DECAY = 1e-4
 BATCH_NORM_DECAY = 0.9
 BATCH_NORM_EPSILON = 1e-5
 
-
-"""Regularizer for constrictive regularization.
-"""
-class ConstrictiveRegularizer(tf.keras.regularizers.Regularizer):
-    def __init__(self, scale):
-        super().__init__()
-        self.scale = scale
-
-    def __call__(self, x):
-        l2_norm = tf.reduce_sum(tf.square(x), axis=0)
-        regularization = tf.reduce_mean(l2_norm-tf.reduce_mean(l2_norm))/4.0
-        return self.scale * regularization
-
-
-"""
-Dense layer without bias. weights and features are l2 normed before dense is
-applied.
-Args:
-  units             : number of output units
-  kernel_initializer: initializer for weights
-  kernel_regularizer: Regularizer for weights
-Returns:
-  A Keras layer instance.
-"""
-class AMDense(tf.keras.layers.Layer):
-  def __init__(self,
-               units,
-               kernel_initializer='glorot_uniform',
-               kernel_regularizer=None,
-               **kwargs):
-
-    super().__init__(**kwargs)
-    self.units = units
-    self.kernel_initializer = kernel_initializer
-    self.kernel_regularizer = kernel_regularizer
-
-  def build(self, input_shape):
-    self.kernel = self.add_weight("kernel",
-                                  shape=[int(input_shape[-1]), self.units],
-                                  initializer=self.kernel_initializer,
-                                  regularizer=self.kernel_regularizer,
-                                  trainable=True)
-
-  def call(self, inputs):
-    return tf.matmul(tf.nn.l2_normalize(inputs, -1),
-                     tf.nn.l2_normalize(self.kernel, 0))
-
-
 """A block that has a identity layer at shortcut.
 Args:
   kernel_size: the kernel size of middle conv layer at main path
@@ -258,15 +210,14 @@ Args:
 Returns:
     A Keras model instance.
 """
-class ResNet50AMCA(tf.keras.Model):
-  def __init__(self, num_classes, num_features, activation='relu',
-               regularizer='batchnorm', dropout_rate=0, ca_decay=1e-3):
+class ResNet50(tf.keras.Model):
+  def __init__(self, num_classes, num_features, activation='relu', regularizer='batchnorm', dropout_rate=0):
     super().__init__(name='generator')
     bn_axis = -1
     self.activation = activation
     self.num_classes = num_classes
 
-    self.conv1 = tf.keras.layers.Conv2D(32, (7, 7),
+    self.conv1 = tf.keras.layers.Conv2D(16, (7, 7),
                                         strides=(2, 2),
                                         padding='valid',
                                         use_bias=False,
@@ -291,11 +242,8 @@ class ResNet50AMCA(tf.keras.Model):
     self.blocks.append(ConvBlock(3, [16, 16, 64], strides=(1, 1), stage=2, block='a', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
     self.blocks.append(IdentityBlock(3, [16, 16, 64], stage=2, block='b', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
 
-    self.blocks.append(ConvBlock(3, [16, 16, 64], stage=3, block='a', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
-    self.blocks.append(IdentityBlock(3, [16, 16, 64], stage=3, block='b', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
-
-    self.blocks.append(ConvBlock(3, [64, 64, 256], stage=4, block='a', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
-    self.blocks.append(IdentityBlock(3, [64, 64, 256], stage=4, block='b', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
+    self.blocks.append(ConvBlock(3, [64, 64, 256], stage=3, block='a', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
+    self.blocks.append(IdentityBlock(3, [64, 64, 256], stage=3, block='b', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
 
     self.avg_pool = tf.keras.layers.GlobalAveragePooling2D(name='avg_pool')
     self.fc1 = tf.keras.layers.Dense(num_features,
@@ -303,12 +251,14 @@ class ResNet50AMCA(tf.keras.Model):
                                      kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.01),
                                      kernel_regularizer=tf.keras.regularizers.l2(L2_WEIGHT_DECAY),
                                      bias_regularizer=tf.keras.regularizers.l2(L2_WEIGHT_DECAY),
-                                     activity_regularizer=ConstrictiveRegularizer(ca_decay),
                                      name='fc1')
-    self.logits = AMDense(num_classes,
-                          kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.01),
-                          kernel_regularizer=ConstrictiveRegularizer(ca_decay),
-                          name='logits')
+
+    self.logits = tf.keras.layers.Dense(num_classes,
+                                        activation=None,
+                                        kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.01),
+                                        kernel_regularizer=tf.keras.regularizers.l2(L2_WEIGHT_DECAY),
+                                        bias_regularizer=tf.keras.regularizers.l2(L2_WEIGHT_DECAY),
+                                        name='logits')
 
   def call(self, img_input, training=False):
     x = self.conv1(img_input)

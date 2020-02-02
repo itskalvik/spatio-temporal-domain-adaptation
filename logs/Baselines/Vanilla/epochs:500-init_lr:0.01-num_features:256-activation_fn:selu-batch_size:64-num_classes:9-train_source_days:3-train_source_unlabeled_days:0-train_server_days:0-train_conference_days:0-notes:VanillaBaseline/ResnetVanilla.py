@@ -4,7 +4,7 @@ import os
 import sys
 sys.path.append(os.path.join(repo_path, 'models'))
 from utils import *
-from resnet_amca import ResNet50AMCA
+from resnet import ResNet50
 import tensorflow as tf
 import numpy as np
 import argparse
@@ -29,11 +29,8 @@ def get_parser():
     parser.add_argument('--save_freq', type=int, default='25')
     parser.add_argument('--checkpoint_path', default="checkpoints")
     parser.add_argument('--summary_writer_path', default="tensorboard_logs")
-    parser.add_argument('--s', type=int, default=10)
-    parser.add_argument('--m', type=float, default=0.1)
-    parser.add_argument('--ca', type=float, default=1e-3)
-    parser.add_argument('--log_dir', default="logs/Baselines/AMCA/")
-    parser.add_argument('--notes', default="AMCABaselineSlim")
+    parser.add_argument('--log_dir', default="logs/Baselines/Vanilla/")
+    parser.add_argument('--notes', default="VanillaBaseline")
     return parser
 
 def save_arg(arg):
@@ -47,22 +44,15 @@ def get_cross_entropy_loss(labels, logits):
   loss = tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=logits)
   return tf.reduce_mean(loss)
 
-def AM_logits(labels, logits, m, s):
-  cos_theta = tf.clip_by_value(logits, -1,1)
-  phi = cos_theta - m
-  adjust_theta = s * tf.where(tf.equal(labels,1), phi, cos_theta)
-  return adjust_theta
-
 @tf.function
 def test_step(images):
   logits, _ = model(images, training=False)
   return tf.nn.softmax(logits)
 
 @tf.function
-def train_step(src_images, src_labels, s, m):
+def train_step(src_images, src_labels):
   with tf.GradientTape() as tape:
     src_logits, _ = model(src_images, training=True)
-    src_logits    = AM_logits(labels=src_labels, logits=src_logits, m=m, s=s)
     batch_cross_entropy_loss  = get_cross_entropy_loss(labels=src_labels,
                                                        logits=src_logits)
 
@@ -90,16 +80,11 @@ if __name__=='__main__':
     init_lr         = arg.init_lr
     num_features    = arg.num_features
     activation_fn   = arg.activation_fn
-    s               = arg.s
-    m               = arg.m
-    ca              = arg.ca
 
     run_params      = dict(vars(arg))
     del run_params['log_dir']
     del run_params['checkpoint_path']
     del run_params['summary_writer_path']
-    del run_params['gpu']
-    del run_params['save_freq']
     sorted(run_params)
 
     run_params      = str(run_params).replace(" ", "").replace("'", "").replace(",", "-")[1:-1]
@@ -265,10 +250,9 @@ if __name__=='__main__':
                                                                    decay_steps=(X_train_src.shape[0]//batch_size)*200,
                                                                    end_learning_rate=init_lr*1e-2,
                                                                    cycle=True)
-    model      = ResNet50AMCA(num_classes,
-                              num_features,
-                              activation=activation_fn,
-                              ca_decay=ca)
+    model      = ResNet50(num_classes,
+                          num_features,
+                          activation=activation_fn)
     optimizer  = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     summary_writer = tf.summary.create_file_writer(summary_writer_path)
@@ -278,11 +262,9 @@ if __name__=='__main__':
                                                 checkpoint_path,
                                                 max_to_keep=5)
 
-    m_anneal = tf.Variable(0, dtype="float32")
     for epoch in range(epochs):
-      m_anneal.assign(tf.minimum(m*(epoch/epochs), m))
       for source_data in src_train_set:
-        train_step(source_data[0], source_data[1], s, m_anneal)
+        train_step(source_data[0], source_data[1])
 
       for data in time_test_set:
         temporal_test_acc(test_step(data[0]), data[1])

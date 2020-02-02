@@ -211,13 +211,14 @@ Returns:
     A Keras model instance.
 """
 class ResNet50(tf.keras.Model):
-  def __init__(self, num_classes, num_features, activation='relu', regularizer='batchnorm', dropout_rate=0):
+  def __init__(self, num_classes, num_features, activation='relu',
+               regularizer='batchnorm', dropout_rate=0):
     super().__init__(name='generator')
     bn_axis = -1
     self.activation = activation
     self.num_classes = num_classes
 
-    self.conv1 = tf.keras.layers.Conv2D(32, (7, 7),
+    self.conv1 = tf.keras.layers.Conv2D(16, (7, 7),
                                         strides=(2, 2),
                                         padding='valid',
                                         use_bias=False,
@@ -239,11 +240,11 @@ class ResNet50(tf.keras.Model):
                                                   name='max_pool1')
 
     self.blocks = []
-    self.blocks.append(ConvBlock(3, [32, 32, 128], strides=(1, 1), stage=2, block='a', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
-    self.blocks.append(IdentityBlock(3, [32, 32, 128], stage=2, block='b', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
+    self.blocks.append(ConvBlock(3, [16, 16, 64], strides=(1, 1), stage=2, block='a', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
+    self.blocks.append(IdentityBlock(3, [16, 16, 64], stage=2, block='b', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
 
-    self.blocks.append(ConvBlock(3, [32, 32, 128], stage=3, block='a', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
-    self.blocks.append(IdentityBlock(3, [32, 32, 128], stage=3, block='b', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
+    self.blocks.append(ConvBlock(3, [16, 16, 64], stage=3, block='a', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
+    self.blocks.append(IdentityBlock(3, [16, 16, 64], stage=3, block='b', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
 
     self.blocks.append(ConvBlock(3, [64, 64, 256], stage=4, block='a', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
     self.blocks.append(IdentityBlock(3, [64, 64, 256], stage=4, block='b', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
