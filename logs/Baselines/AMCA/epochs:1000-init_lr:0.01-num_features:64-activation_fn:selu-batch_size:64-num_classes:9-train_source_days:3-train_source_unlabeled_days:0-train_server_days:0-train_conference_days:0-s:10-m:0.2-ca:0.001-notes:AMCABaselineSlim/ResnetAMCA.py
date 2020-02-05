@@ -33,7 +33,7 @@ def get_parser():
     parser.add_argument('--m', type=float, default=0.1)
     parser.add_argument('--ca', type=float, default=1e-3)
     parser.add_argument('--log_dir', default="logs/Baselines/AMCA/")
-    parser.add_argument('--notes', default="AMCABaseline-2xAnneal")
+    parser.add_argument('--notes', default="AMCABaselineSlim")
     return parser
 
 def save_arg(arg):
@@ -280,7 +280,7 @@ if __name__=='__main__':
 
     m_anneal = tf.Variable(0, dtype="float32")
     for epoch in range(epochs):
-      m_anneal.assign(tf.minimum(m*(epoch/(epochs/2)), m))
+      m_anneal.assign(tf.minimum(m*(epoch/epochs), m))
       for source_data in src_train_set:
         train_step(source_data[0], source_data[1], s, m_anneal)
 

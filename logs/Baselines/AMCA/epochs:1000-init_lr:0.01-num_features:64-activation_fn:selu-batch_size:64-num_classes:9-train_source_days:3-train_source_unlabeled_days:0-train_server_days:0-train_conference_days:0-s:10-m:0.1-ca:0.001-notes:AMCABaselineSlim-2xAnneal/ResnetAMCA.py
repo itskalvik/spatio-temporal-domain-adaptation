@@ -33,7 +33,7 @@ def get_parser():
     parser.add_argument('--m', type=float, default=0.1)
     parser.add_argument('--ca', type=float, default=1e-3)
     parser.add_argument('--log_dir', default="logs/Baselines/AMCA/")
-    parser.add_argument('--notes', default="AMCABaseline-2xAnneal")
+    parser.add_argument('--notes', default="AMCABaselineSlim-2xAnneal")
     return parser
 
 def save_arg(arg):
