@@ -15,7 +15,7 @@ import h5py
 
 def get_parser():
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--epochs', type=int, default=1000)
+    parser.add_argument('--epochs', type=int, default=4000)
     parser.add_argument('--init_lr', type=float, default=0.01)
     parser.add_argument('--num_features', type=int, default=64)
     parser.add_argument('--activation_fn', default='selu')
@@ -29,11 +29,12 @@ def get_parser():
     parser.add_argument('--save_freq', type=int, default='25')
     parser.add_argument('--checkpoint_path', default="checkpoints")
     parser.add_argument('--summary_writer_path', default="tensorboard_logs")
+    parser.add_argument('--anneal', type=int, default=4)
     parser.add_argument('--s', type=int, default=10)
     parser.add_argument('--m', type=float, default=0.1)
     parser.add_argument('--ca', type=float, default=1e-3)
     parser.add_argument('--log_dir', default="logs/Baselines/AMCA/")
-    parser.add_argument('--notes', default="AMCABaseline-2xAnneal")
+    parser.add_argument('--notes', default="AMCABaseline")
     return parser
 
 def save_arg(arg):
@@ -90,6 +91,7 @@ if __name__=='__main__':
     init_lr         = arg.init_lr
     num_features    = arg.num_features
     activation_fn   = arg.activation_fn
+    anneal          = arg.anneal
     s               = arg.s
     m               = arg.m
     ca              = arg.ca
@@ -280,7 +282,7 @@ if __name__=='__main__':
 
     m_anneal = tf.Variable(0, dtype="float32")
     for epoch in range(epochs):
-      m_anneal.assign(tf.minimum(m*(epoch/(epochs/2)), m))
+      m_anneal.assign(tf.minimum(m*(epoch/(epochs/anneal)), m))
       for source_data in src_train_set:
         train_step(source_data[0], source_data[1], s, m_anneal)
 
