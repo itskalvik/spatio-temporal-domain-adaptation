@@ -1,4 +1,4 @@
-repo_path = "/home/kjakkala/mmwave"
+repo_path = "/users/kjakkala/mmwave"
 
 import os
 import sys
@@ -20,13 +20,13 @@ def get_parser():
     parser.add_argument('--num_features', type=int, default=64)
     parser.add_argument('--activation_fn', default='selu')
     parser.add_argument('--gpu', default='0')
-    parser.add_argument('--batch_size', type=int, default='64')
-    parser.add_argument('--num_classes', type=int, default='9')
-    parser.add_argument('--train_source_days', type=int, default='3')
-    parser.add_argument('--train_source_unlabeled_days', type=int, default='0')
-    parser.add_argument('--train_server_days', type=int, default='0')
-    parser.add_argument('--train_conference_days', type=int, default='0')
-    parser.add_argument('--save_freq', type=int, default='25')
+    parser.add_argument('--batch_size', type=int, default=64)
+    parser.add_argument('--num_classes', type=int, default=10)
+    parser.add_argument('--train_source_days', type=int, default=3)
+    parser.add_argument('--train_source_unlabeled_days', type=int, default=0)
+    parser.add_argument('--train_server_days', type=int, default=0)
+    parser.add_argument('--train_conference_days', type=int, default=0)
+    parser.add_argument('--save_freq', type=int, default=25)
     parser.add_argument('--checkpoint_path', default="checkpoints")
     parser.add_argument('--summary_writer_path', default="tensorboard_logs")
     parser.add_argument('--anneal', type=int, default=4)
@@ -34,7 +34,7 @@ def get_parser():
     parser.add_argument('--m', type=float, default=0.1)
     parser.add_argument('--ca', type=float, default=1e-3)
     parser.add_argument('--log_dir', default="logs/Baselines/AMCA/")
-    parser.add_argument('--notes', default="AMCABaseline")
+    parser.add_argument('--notes', default="AMCABaseline-Final")
     return parser
 
 def save_arg(arg):
@@ -79,7 +79,7 @@ if __name__=='__main__':
 
     os.environ['CUDA_VISIBLE_DEVICES']=arg.gpu
 
-    dataset_path    = os.path.join(repo_path, 'data')
+    dataset_path    = os.path.join(repo_path, 'data/final_data')
     num_classes     = arg.num_classes
     batch_size      = arg.batch_size
     train_source_days = arg.train_source_days
@@ -128,15 +128,6 @@ if __name__=='__main__':
                                      num_classes=len(classes),
                                      max_samples_per_class=95)
     print(X_data.shape, y_data.shape)
-
-    #remove harika's data (incomplete data)
-    X_data = np.delete(X_data, np.where(y_data[:, 0] == 1)[0], 0)
-    y_data = np.delete(y_data, np.where(y_data[:, 0] == 1)[0], 0)
-
-    #update labes to handle 9 classes instead of 10
-    y_data[y_data[:, 0] >= 2, 0] -= 1
-    del classes[1]
-    print(X_data.shape, y_data.shape, "\n", classes)
 
     #split days of data to train and test
     X_src = X_data[y_data[:, 1] < train_source_days]
