@@ -30,7 +30,7 @@ def get_parser():
     parser.add_argument('--checkpoint_path', default="checkpoints")
     parser.add_argument('--summary_writer_path', default="tensorboard_logs")
     parser.add_argument('--log_dir', default="logs/Baselines/Vanilla/")
-    parser.add_argument('--notes', default="VanillaBaseline32-FinalData")
+    parser.add_argument('--notes', default="VanillaBaseline-FinalData")
     return parser
 
 def save_arg(arg):

@@ -218,7 +218,7 @@ class ResNet50(tf.keras.Model):
     self.activation = activation
     self.num_classes = num_classes
 
-    self.conv1 = tf.keras.layers.Conv2D(32, (7, 7),
+    self.conv1 = tf.keras.layers.Conv2D(16, (7, 7),
                                         strides=(2, 2),
                                         padding='valid',
                                         use_bias=False,
@@ -240,14 +240,14 @@ class ResNet50(tf.keras.Model):
                                                   name='max_pool1')
 
     self.blocks = []
-    self.blocks.append(ConvBlock(3, [32, 32, 128], strides=(1, 1), stage=2, block='a', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
-    self.blocks.append(IdentityBlock(3, [32, 32, 128], stage=2, block='b', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
+    self.blocks.append(ConvBlock(3, [16, 16, 64], strides=(1, 1), stage=2, block='a', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
+    self.blocks.append(IdentityBlock(3, [16, 16, 64], stage=2, block='b', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
 
-    self.blocks.append(ConvBlock(3, [32, 32, 128], stage=3, block='a', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
-    self.blocks.append(IdentityBlock(3, [32, 32, 128], stage=3, block='b', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
+    self.blocks.append(ConvBlock(3, [16, 16, 64], stage=3, block='a', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
+    self.blocks.append(IdentityBlock(3, [16, 16, 64], stage=3, block='b', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
 
-    self.blocks.append(ConvBlock(3, [128, 128, 512], stage=4, block='a', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
-    self.blocks.append(IdentityBlock(3, [128, 128, 512], stage=4, block='b', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
+    self.blocks.append(ConvBlock(3, [64, 64, 256], stage=4, block='a', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
+    self.blocks.append(IdentityBlock(3, [64, 64, 256], stage=4, block='b', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
 
     self.avg_pool = tf.keras.layers.GlobalAveragePooling2D(name='avg_pool')
     self.fc1 = tf.keras.layers.Dense(num_features,
