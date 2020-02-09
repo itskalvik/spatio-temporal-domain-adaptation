@@ -1,4 +1,4 @@
-repo_path = "/users/kjakkala/mmwave"
+repo_path = "/home/kjakkala/mmwave"
 
 import os
 import sys
@@ -12,6 +12,7 @@ import inspect
 import shutil
 import yaml
 import h5py
+from sklearn.metrics import confusion_matrix
 
 def get_parser():
     parser = argparse.ArgumentParser(description='')
@@ -259,20 +260,50 @@ if __name__=='__main__':
       for source_data in src_train_set:
         train_step(source_data[0], source_data[1])
 
+      pred_labels = []
       for data in time_test_set:
-        temporal_test_acc(test_step(data[0]), data[1])
+        pred_labels.extend(test_step(data[0]))
+      temporal_test_acc(pred_labels, y_test_trg)
+      cm = confusion_matrix(np.argmax(y_test_trg, axis=-1), np.argmax(pred_labels, axis=-1))
+      cm_image = plot_to_image(plot_confusion_matrix(cm, class_names=classes))
+      with summary_writer.as_default():
+        tf.summary.image("Temporal Test Confusion Matrix", cm_image, step=epoch)
 
+      pred_labels = []
       for data in src_test_set:
-        source_test_acc(test_step(data[0]), data[1])
+        pred_labels.extend(test_step(data[0]))
+      source_test_acc(pred_labels, y_test_src)
+      cm = confusion_matrix(np.argmax(y_test_src, axis=-1), np.argmax(pred_labels, axis=-1))
+      cm_image = plot_to_image(plot_confusion_matrix(cm, class_names=classes))
+      with summary_writer.as_default():
+        tf.summary.image("Source Test Confusion Matrix", cm_image, step=epoch)
 
+      pred_labels = []
       for data in office_test_set:
-        office_test_acc(test_step(data[0]), data[1])
+        pred_labels.extend(test_step(data[0]))
+      office_test_acc(pred_labels, y_data_office)
+      cm = confusion_matrix(np.argmax(y_data_office, axis=-1), np.argmax(pred_labels, axis=-1))
+      cm_image = plot_to_image(plot_confusion_matrix(cm, class_names=classes))
+      with summary_writer.as_default():
+        tf.summary.image("Office Test Confusion Matrix", cm_image, step=epoch)
 
+      pred_labels = []
       for data in server_test_set:
-        server_test_acc(test_step(data[0]), data[1])
+        pred_labels.extend(test_step(data[0]))
+      server_test_acc(pred_labels, y_test_server)
+      cm = confusion_matrix(np.argmax(y_test_server, axis=-1), np.argmax(pred_labels, axis=-1))
+      cm_image = plot_to_image(plot_confusion_matrix(cm, class_names=classes))
+      with summary_writer.as_default():
+        tf.summary.image("Server Test Confusion Matrix", cm_image, step=epoch)
 
+      pred_labels = []
       for data in conf_test_set:
-        conference_test_acc(test_step(data[0]), data[1])
+        pred_labels.extend(test_step(data[0]))
+      conference_test_acc(pred_labels, y_test_conf)
+      cm = confusion_matrix(np.argmax(y_test_conf, axis=-1), np.argmax(pred_labels, axis=-1))
+      cm_image = plot_to_image(plot_confusion_matrix(cm, class_names=classes))
+      with summary_writer.as_default():
+        tf.summary.image("Conference Test Confusion Matrix", cm_image, step=epoch)
 
       with summary_writer.as_default():
         tf.summary.scalar("temporal_test_acc", temporal_test_acc.result(), step=epoch)
