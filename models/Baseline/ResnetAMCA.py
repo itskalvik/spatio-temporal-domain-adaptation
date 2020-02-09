@@ -79,7 +79,7 @@ if __name__=='__main__':
 
     os.environ['CUDA_VISIBLE_DEVICES']=arg.gpu
 
-    dataset_path    = os.path.join(repo_path, 'data/final_data')
+    dataset_path    = os.path.join(repo_path, 'data')
     num_classes     = arg.num_classes
     batch_size      = arg.batch_size
     train_source_days = arg.train_source_days

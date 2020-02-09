@@ -1,10 +1,10 @@
-repo_path = "/users/kjakkala/mmwave"
+repo_path = "/home/kjakkala/mmwave"
 
 import os
 import sys
 sys.path.append(os.path.join(repo_path, 'models'))
 from utils import *
-from resnet import ResNet50
+from resnet_amca import ResNet50AMCA
 import tensorflow as tf
 import numpy as np
 import argparse
@@ -15,22 +15,26 @@ import h5py
 
 def get_parser():
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--epochs', type=int, default=2000)
-    parser.add_argument('--init_lr', type=float, default=1e-3)
-    parser.add_argument('--num_features', type=int, default=256)
+    parser.add_argument('--epochs', type=int, default=4000)
+    parser.add_argument('--init_lr', type=float, default=0.01)
+    parser.add_argument('--num_features', type=int, default=64)
     parser.add_argument('--activation_fn', default='selu')
     parser.add_argument('--gpu', default='0')
-    parser.add_argument('--batch_size', type=int, default=64)
-    parser.add_argument('--num_classes', type=int, default=10)
-    parser.add_argument('--train_source_days', type=int, default=3)
-    parser.add_argument('--train_source_unlabeled_days', type=int, default=0)
-    parser.add_argument('--train_server_days', type=int, default=0)
-    parser.add_argument('--train_conference_days', type=int, default=0)
-    parser.add_argument('--save_freq', type=int, default=25)
+    parser.add_argument('--batch_size', type=int, default='64')
+    parser.add_argument('--num_classes', type=int, default='9')
+    parser.add_argument('--train_source_days', type=int, default='3')
+    parser.add_argument('--train_source_unlabeled_days', type=int, default='0')
+    parser.add_argument('--train_server_days', type=int, default='0')
+    parser.add_argument('--train_conference_days', type=int, default='0')
+    parser.add_argument('--save_freq', type=int, default='25')
     parser.add_argument('--checkpoint_path', default="checkpoints")
     parser.add_argument('--summary_writer_path', default="tensorboard_logs")
-    parser.add_argument('--log_dir', default="logs/Baselines/Vanilla/")
-    parser.add_argument('--notes', default="VanillaBaseline32-FinalData")
+    parser.add_argument('--anneal', type=int, default=4)
+    parser.add_argument('--s', type=int, default=10)
+    parser.add_argument('--m', type=float, default=0.1)
+    parser.add_argument('--ca', type=float, default=1e-3)
+    parser.add_argument('--log_dir', default="logs/Baselines/AMCA/")
+    parser.add_argument('--notes', default="AMCABaseline-Final")
     return parser
 
 def save_arg(arg):
@@ -44,15 +48,22 @@ def get_cross_entropy_loss(labels, logits):
   loss = tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=logits)
   return tf.reduce_mean(loss)
 
+def AM_logits(labels, logits, m, s):
+  cos_theta = tf.clip_by_value(logits, -1,1)
+  phi = cos_theta - m
+  adjust_theta = s * tf.where(tf.equal(labels,1), phi, cos_theta)
+  return adjust_theta
+
 @tf.function
 def test_step(images):
   logits, _ = model(images, training=False)
   return tf.nn.softmax(logits)
 
 @tf.function
-def train_step(src_images, src_labels):
+def train_step(src_images, src_labels, s, m):
   with tf.GradientTape() as tape:
     src_logits, _ = model(src_images, training=True)
+    src_logits    = AM_logits(labels=src_labels, logits=src_logits, m=m, s=s)
     batch_cross_entropy_loss  = get_cross_entropy_loss(labels=src_labels,
                                                        logits=src_logits)
 
@@ -68,7 +79,7 @@ if __name__=='__main__':
 
     os.environ['CUDA_VISIBLE_DEVICES']=arg.gpu
 
-    dataset_path    = os.path.join(repo_path, 'data')
+    dataset_path    = os.path.join(repo_path, 'data/final_data')
     num_classes     = arg.num_classes
     batch_size      = arg.batch_size
     train_source_days = arg.train_source_days
@@ -80,6 +91,10 @@ if __name__=='__main__':
     init_lr         = arg.init_lr
     num_features    = arg.num_features
     activation_fn   = arg.activation_fn
+    anneal          = arg.anneal
+    s               = arg.s
+    m               = arg.m
+    ca              = arg.ca
 
     run_params      = dict(vars(arg))
     del run_params['log_dir']
@@ -97,7 +112,7 @@ if __name__=='__main__':
     checkpoint_path = os.path.join(log_dir, arg.checkpoint_path)
 
     save_arg(arg)
-    shutil.copy2(inspect.getfile(ResNet50), arg.log_dir)
+    shutil.copy2(inspect.getfile(ResNet50AMCA), arg.log_dir)
     shutil.copy2(os.path.abspath(__file__), arg.log_dir)
 
     '''
@@ -113,6 +128,15 @@ if __name__=='__main__':
                                      num_classes=len(classes),
                                      max_samples_per_class=95)
     print(X_data.shape, y_data.shape)
+
+    #remove harika's data (incomplete data)
+    X_data = np.delete(X_data, np.where(y_data[:, 0] == 1)[0], 0)
+    y_data = np.delete(y_data, np.where(y_data[:, 0] == 1)[0], 0)
+
+    #update labes to handle 9 classes instead of 10
+    y_data[y_data[:, 0] >= 2, 0] -= 1
+    del classes[1]
+    print(X_data.shape, y_data.shape, "\n", classes)
 
     #split days of data to train and test
     X_src = X_data[y_data[:, 1] < train_source_days]
@@ -243,9 +267,10 @@ if __name__=='__main__':
                                                                    decay_steps=(X_train_src.shape[0]//batch_size)*200,
                                                                    end_learning_rate=init_lr*1e-2,
                                                                    cycle=True)
-    model      = ResNet50(num_classes,
-                          num_features,
-                          activation=activation_fn)
+    model      = ResNet50AMCA(num_classes,
+                              num_features,
+                              activation=activation_fn,
+                              ca_decay=ca)
     optimizer  = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     summary_writer = tf.summary.create_file_writer(summary_writer_path)
@@ -255,9 +280,11 @@ if __name__=='__main__':
                                                 checkpoint_path,
                                                 max_to_keep=5)
 
+    m_anneal = tf.Variable(0, dtype="float32")
     for epoch in range(epochs):
+      m_anneal.assign(tf.minimum(m*(epoch/(epochs/anneal)), m))
       for source_data in src_train_set:
-        train_step(source_data[0], source_data[1])
+        train_step(source_data[0], source_data[1], s, m_anneal)
 
       for data in time_test_set:
         temporal_test_acc(test_step(data[0]), data[1])
