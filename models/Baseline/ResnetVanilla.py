@@ -1,6 +1,5 @@
-repo_path = "/home/kjakkala/mmwave"
-
 import os
+repo_path = os.getenv('MMWAVE_PATH')
 import sys
 sys.path.append(os.path.join(repo_path, 'models'))
 from utils import *
@@ -16,9 +15,10 @@ from sklearn.metrics import confusion_matrix
 
 def get_parser():
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--epochs', type=int, default=2000)
+    parser.add_argument('--epochs', type=int, default=1000)
     parser.add_argument('--init_lr', type=float, default=1e-3)
     parser.add_argument('--num_features', type=int, default=256)
+    parser.add_argument('--model_filters', type=int, default=64)
     parser.add_argument('--activation_fn', default='selu')
     parser.add_argument('--gpu', default='0')
     parser.add_argument('--batch_size', type=int, default=64)
@@ -31,7 +31,7 @@ def get_parser():
     parser.add_argument('--checkpoint_path', default="checkpoints")
     parser.add_argument('--summary_writer_path', default="tensorboard_logs")
     parser.add_argument('--log_dir', default="logs/Baselines/Vanilla/")
-    parser.add_argument('--notes', default="VanillaBaseline32-FinalData")
+    parser.add_argument('--notes', default="VanillaBaseline32")
     return parser
 
 def save_arg(arg):
@@ -81,6 +81,7 @@ if __name__=='__main__':
     init_lr         = arg.init_lr
     num_features    = arg.num_features
     activation_fn   = arg.activation_fn
+    model_filters   = arg.model_filters
 
     run_params      = dict(vars(arg))
     del run_params['log_dir']
@@ -246,6 +247,7 @@ if __name__=='__main__':
                                                                    cycle=True)
     model      = ResNet50(num_classes,
                           num_features,
+                          num_filters=model_filters,
                           activation=activation_fn)
     optimizer  = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
