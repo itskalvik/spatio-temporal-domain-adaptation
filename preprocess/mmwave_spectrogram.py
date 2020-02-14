@@ -1,4 +1,116 @@
+'''
+Usage Notes:
+    Target min_range: 1.0
+    Target max_range: 4.5
+
+    Source min_range: 1.0
+    Source max_range: 5.0
+'''
+
+'''
+python3 mmwave_spectrogram.py --src-path /media/NAS/MMWAVE_1642_10days/target/office/ --dataset-file ~/mmwave/data/target_office_data.h5 --num-samples 50 --num-days 5 --min-range 1.0 --max-range 4.5
+100%|█████████████████████████████████████| 2500/2500 [1:06:02<00:00,  1.58s/it]
+(2500, 2) (2500,)
+/media/NAS/MMWAVE_1642_10days/target/office/wrang/08_16/17_04_11.bin
+/media/NAS/MMWAVE_1642_10days/target/office/wrang/12_10/16_51_59.bin
+2
+(2498, 2) (2498, 128, 1024)
+(2498, 2) (2498, 256, 256, 1)
+'''
+
+'''
+python3 mmwave_spectrogram.py --src-path /media/NAS/MMWAVE_1642_10days/target/conf/ --dataset-file ~/mmwave/data/target_conf_data.h5 --num-samples 50 --num-days 5 --min-range 1.0 --max-range 4.5
+100%|█████████████████████████████████████| 2500/2500 [1:07:08<00:00,  1.61s/it]
+(2500, 2) (2500, 128, 1024)
+0
+(2500, 2) (2500, 128, 1024)
+(2500, 2) (2500, 256, 256, 1)
+'''
+
+'''
+python3 mmwave_spectrogram.py --src-path /media/NAS/MMWAVE_1642_10days/target/server/ --dataset-file ~/mmwave/data/target_server_data.h5 --num-samples 50 --num-days 5 --min-range 1.0 --max-range 4.5
+100%|█████████████████████████████████████| 2500/2500 [1:07:10<00:00,  1.61s/it]
+(2500, 2) (2500,)
+/media/NAS/MMWAVE_1642_10days/target/server/aali26/09_22/11_30_43.bin
+/media/NAS/MMWAVE_1642_10days/target/server/aali26/11_27/20_17_51.bin
+/media/NAS/MMWAVE_1642_10days/target/server/shuang9/01_08/16_05_32.bin
+/media/NAS/MMWAVE_1642_10days/target/server/upattnai/01_21/12_39_50.bin
+4
+(2496, 2) (2496, 128, 1024)
+(2496, 2) (2496, 256, 256, 1)
+'''
+
+'''
+python3 mmwave_spectrogram.py --src-path /media/NAS/MMWAVE_1642_10days/source/ --dataset-file ~/mmwave/data/source_data.h5 --num-samples 100 --num-days 10 --min-range 1.0 --max-range 5.0
+100%|███████████████████████████████████| 10000/10000 [4:26:49<00:00,  1.60s/it]
+(10000, 2) (10000,)
+/media/NAS/MMWAVE_1642_10days/source/aali26/11_28/22_48_36.bin
+/media/NAS/MMWAVE_1642_10days/source/aali26/11_29/19_34_47.bin
+/media/NAS/MMWAVE_1642_10days/source/aali26/12_01/12_46_51.bin
+/media/NAS/MMWAVE_1642_10days/source/apandit5/10_16/11_44_00.bin
+/media/NAS/MMWAVE_1642_10days/source/apandit5/10_16/11_47_12.bin
+/media/NAS/MMWAVE_1642_10days/source/apandit5/10_16/11_50_45.bin
+/media/NAS/MMWAVE_1642_10days/source/apandit5/10_16/11_55_43.bin
+/media/NAS/MMWAVE_1642_10days/source/apandit5/10_21/10_54_20.bin
+/media/NAS/MMWAVE_1642_10days/source/apandit5/10_21/11_00_11.bin
+/media/NAS/MMWAVE_1642_10days/source/apandit5/11_06/11_13_34.bin
+/media/NAS/MMWAVE_1642_10days/source/apandit5/11_06/11_14_17.bin
+/media/NAS/MMWAVE_1642_10days/source/apandit5/11_13/13_52_08.bin
+/media/NAS/MMWAVE_1642_10days/source/apandit5/11_27/11_19_33.bin
+/media/NAS/MMWAVE_1642_10days/source/apandit5/11_27/11_21_20.bin
+/media/NAS/MMWAVE_1642_10days/source/apandit5/11_27/11_24_54.bin
+/media/NAS/MMWAVE_1642_10days/source/apandit5/12_02/11_43_24.bin
+/media/NAS/MMWAVE_1642_10days/source/apandit5/12_09/14_21_48.bin
+/media/NAS/MMWAVE_1642_10days/source/apandit5/12_09/14_25_22.bin
+/media/NAS/MMWAVE_1642_10days/source/apandit5/12_09/14_26_26.bin
+/media/NAS/MMWAVE_1642_10days/source/apandit5/12_09/14_30_43.bin
+/media/NAS/MMWAVE_1642_10days/source/hhah/11_06/13_56_51.bin
+/media/NAS/MMWAVE_1642_10days/source/hhah/11_08/15_07_56.bin
+/media/NAS/MMWAVE_1642_10days/source/hhah/11_11/15_40_41.bin
+/media/NAS/MMWAVE_1642_10days/source/hhah/11_13/16_31_36.bin
+/media/NAS/MMWAVE_1642_10days/source/hhah/11_13/16_32_40.bin
+/media/NAS/MMWAVE_1642_10days/source/hhah/11_15/15_21_30.bin
+/media/NAS/MMWAVE_1642_10days/source/hhah/11_19/13_08_59.bin
+/media/NAS/MMWAVE_1642_10days/source/hhah/11_19/13_16_34.bin
+/media/NAS/MMWAVE_1642_10days/source/hhah/11_19/13_18_22.bin
+/media/NAS/MMWAVE_1642_10days/source/hhah/11_22/14_58_11.bin
+/media/NAS/MMWAVE_1642_10days/source/hhah/11_22/14_59_15.bin
+/media/NAS/MMWAVE_1642_10days/source/hhah/11_22/15_01_24.bin
+/media/NAS/MMWAVE_1642_10days/source/hmacharl/08_07/15_02_51.bin
+/media/NAS/MMWAVE_1642_10days/source/hmacharl/08_07/15_16_04.bin
+/media/NAS/MMWAVE_1642_10days/source/hmacharl/08_07/15_20_50.bin
+/media/NAS/MMWAVE_1642_10days/source/kjakkala/06_14/11_13_23.bin
+/media/NAS/MMWAVE_1642_10days/source/kjakkala/06_15/13_02_18.bin
+/media/NAS/MMWAVE_1642_10days/source/kjakkala/06_18/12_13_33.bin
+/media/NAS/MMWAVE_1642_10days/source/pjanakar/06_14/20_59_48.bin
+/media/NAS/MMWAVE_1642_10days/source/ppinyoan/06_07/12_35_39.bin
+/media/NAS/MMWAVE_1642_10days/source/ppinyoan/06_07/12_41_39.bin
+/media/NAS/MMWAVE_1642_10days/source/ppinyoan/06_13/14_14_24.bin
+/media/NAS/MMWAVE_1642_10days/source/ppinyoan/06_13/14_22_00.bin
+/media/NAS/MMWAVE_1642_10days/source/ppinyoan/06_18/14_37_50.bin
+/media/NAS/MMWAVE_1642_10days/source/ppinyoan/06_19/11_13_25.bin
+/media/NAS/MMWAVE_1642_10days/source/ppinyoan/06_19/11_20_09.bin
+/media/NAS/MMWAVE_1642_10days/source/shuang9/08_23/14_05_22.bin
+/media/NAS/MMWAVE_1642_10days/source/shuang9/08_23/14_22_43.bin
+/media/NAS/MMWAVE_1642_10days/source/shuang9/08_28/14_40_01.bin
+/media/NAS/MMWAVE_1642_10days/source/shuang9/09_03/14_52_00.bin
+/media/NAS/MMWAVE_1642_10days/source/shuang9/09_03/14_56_56.bin
+/media/NAS/MMWAVE_1642_10days/source/shuang9/09_03/14_57_30.bin
+/media/NAS/MMWAVE_1642_10days/source/shuang9/09_05/16_00_33.bin
+/media/NAS/MMWAVE_1642_10days/source/shuang9/09_05/16_21_33.bin
+/media/NAS/MMWAVE_1642_10days/source/shuang9/09_06/09_38_51.bin
+/media/NAS/MMWAVE_1642_10days/source/shuang9/09_06/09_45_25.bin
+/media/NAS/MMWAVE_1642_10days/source/upattnai/06_12/12_22_11.bin
+/media/NAS/MMWAVE_1642_10days/source/upattnai/06_14/14_46_12.bin
+/media/NAS/MMWAVE_1642_10days/source/upattnai/06_17/17_28_08.bin
+/media/NAS/MMWAVE_1642_10days/source/upattnai/06_20/13_25_32.bin
+60
+(9940, 2) (9940, 128, 1024)
+(9940, 2) (9940, 256, 256, 1)
+'''
+
 from skimage.filters import threshold_otsu
+from skimage.transform import resize
 from joblib import Parallel, delayed
 from scipy import ndimage as ndi
 import matplotlib.pyplot as plt
@@ -104,7 +216,6 @@ def get_range_mask(range_map):
   c = max(contours, key = cv2.contourArea)
   mask = np.zeros_like(range_map).astype(np.uint8)
   cv2.drawContours(mask, c, -1, (255, 255, 255), 1)
-
   return transform.resize(mask, og_shape, mode='reflect', anti_aliasing=True)
 
 def get_spectrogram(fname, label, mat_file=False):
@@ -134,6 +245,7 @@ def get_spectrogram(fname, label, mat_file=False):
     range_matrix_tmp = np.abs(range_matrix)
     range_matrix_tmp = (20*np.log(range_matrix_tmp/np.max(range_matrix_tmp)))
     range_mask       = get_range_mask(range_matrix_tmp)
+    plt.imshow(transform.resize(range_matrix_tmp, (224, 224), mode='reflect', anti_aliasing=True))
 
     start = 0
     while not (np.where(range_mask[start] > 0)[0].shape[0] > 0):
@@ -151,6 +263,7 @@ def get_spectrogram(fname, label, mat_file=False):
       direc = -1*(np.where(range_mask[0] > 0)[0][0] < range_mask.shape[1]/2)
     else:
       return np.array([]), label
+
     for j in range(range_matrix.shape[0]):
       if not (len(np.where(range_mask[j] > 0)[0]) > 0):
         return np.array([]), label
@@ -218,33 +331,39 @@ def get_parser():
     parser = argparse.ArgumentParser(description='Preprocess mmWave Data')
     parser.add_argument(
         '--src-path',
-        default="/media/kjakkala/NAS/MMWAVE_1642_10days/target/server",
+        default="/media/NAS/MMWAVE_1642_10days/source",
         help='path to root folder of dataset')
     parser.add_argument(
         '--dataset-file',
-        default="/home/kjakkala/mmwave/data/server_5days.h5",
+        default="/home/kjakkala/mmwave/data/source_10days.h5",
         help='path to h5 file to hold preprocessed dataset')
     parser.add_argument(
         '--num-samples',
         type=int,
-        default=50,
+        default=100,
         help='number of samples to keep per day')
     parser.add_argument(
         '--num-days',
         type=int,
-        default=5,
+        default=10,
         help='number of days to keep per person')
-    return parser
+    parser.add_argument(
+        '--min-range',
+        type=float,
+        default=1.0,
+        help='minimum range to consider for computation')
+    parser.add_argument(
+        '--max-range',
+        type=float,
+        default=5.0,
+        help='maximum range to consider for computation')
+    return parser\
 
 #-------------------------------------------------------------------#
 
 c = 3e8
-max_range = 6
-min_range = 1
 band_width = 900.9*1e6
 range_res = c/(2*band_width)
-range_min = int(np.ceil(min_range/range_res))-1
-range_max = int(np.ceil(max_range/range_res))-6
 
 num_frame = 200
 num_adc = 256
@@ -264,6 +383,11 @@ classes = ['aali26', 'apandit5', 'hhah', 'hmacharl', 'kjakkala', 'pjanakar', 'pp
 if __name__ == "__main__":
     parser = get_parser()
     arg = parser.parse_args()
+
+    min_range = arg.min_range
+    max_range = arg.max_range
+    range_min = int(np.ceil(min_range/range_res))
+    range_max = int(np.ceil(max_range/range_res))
 
     files, labels, classes = read_samples(arg.src_path,
                                           classes=classes,
@@ -290,6 +414,12 @@ if __name__ == "__main__":
     dset_X = np.array(list(dset_X))
     dset_y = np.delete(dset_y, delete_inds, 0)
     dset_y = np.array(list(dset_y))
+    print(dset_y.shape, dset_X.shape)
+
+    data_resized = np.zeros((dset_X.shape[0], 256, 256, 1), dtype=np.float32)
+    for i in range(dset_X.shape[0]):
+      data_resized[i] = np.expand_dims(resize(dset_X[i], (256, 256)), axis=-1)
+    dset_X = data_resized
     print(dset_y.shape, dset_X.shape)
 
     hf = h5py.File(arg.dataset_file, 'w')
