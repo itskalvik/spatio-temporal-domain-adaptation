@@ -5,7 +5,6 @@ import itertools
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
-from skimage.transform import resize
 from sklearn.model_selection import train_test_split
 
 def plot_to_image(figure):
@@ -187,23 +186,6 @@ def cutmix(x, y, alpha=1):
 
 
 '''
-Resizes images in batches, only 2nd and 3rd dimensions will be resized
-args:
-    data: 4D numpy array, with shape [number_samples, height, width, channels]
-    output_shape: tuple, with new shape for 2nd and 3rd dimensions
-output:
-    data: 4D numpy array, with shape [number_samples, new_height, new_width, channels]
-'''
-def resize_data(data, output_shape=(256, 256)):
-  _, height, width, channels = data.shape
-  data = data.transpose((1, 2, 3, 0))
-  data = resize(data.reshape(height, width, -1), output_shape)
-  data = data.reshape(*output_shape, channels, -1)
-  data = data.transpose((3, 0, 1, 2))
-  return data
-
-
-'''
 Returns data, labels and classes from h5py file
 args:
     filename: string, filename of h5py dataset
@@ -213,7 +195,7 @@ output:
 '''
 def get_h5dataset(filename):
   hf = h5py.File(filename, 'r')
-  X_data = np.expand_dims(hf.get('X_data'), axis=-1)
+  X_data = np.array(hf.get('X_data'))
   y_data = np.array(hf.get('y_data'))
   classes = list(hf.get('classes'))
   classes = [n.decode("ascii", "ignore") for n in classes]
@@ -295,7 +277,6 @@ output:
 '''
 def get_trg_data(filename, src_classes, train_trg_days):
   X_data_trg, y_data_trg, trg_classes = get_h5dataset(filename)
-  X_data_trg = resize_data(X_data_trg)
 
   #split days of data to train and test
   X_train_trg = X_data_trg[y_data_trg[:, 1] < train_trg_days]

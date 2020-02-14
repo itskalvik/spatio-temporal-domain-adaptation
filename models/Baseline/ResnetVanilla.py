@@ -17,7 +17,7 @@ def get_parser():
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('--epochs', type=int, default=1000)
     parser.add_argument('--init_lr', type=float, default=1e-3)
-    parser.add_argument('--num_features', type=int, default=256)
+    parser.add_argument('--num_features', type=int, default=128)
     parser.add_argument('--model_filters', type=int, default=64)
     parser.add_argument('--activation_fn', default='selu')
     parser.add_argument('--gpu', default='0')
@@ -31,7 +31,7 @@ def get_parser():
     parser.add_argument('--checkpoint_path', default="checkpoints")
     parser.add_argument('--summary_writer_path', default="tensorboard_logs")
     parser.add_argument('--log_dir', default="logs/Baselines/Vanilla/")
-    parser.add_argument('--notes', default="VanillaBaseline32")
+    parser.add_argument('--notes', default="VanillaBaseline")
     return parser
 
 def save_arg(arg):
@@ -107,7 +107,6 @@ if __name__=='__main__':
     '''
 
     X_data, y_data, classes = get_h5dataset(os.path.join(dataset_path, 'source_data.h5'))
-    X_data = resize_data(X_data)
     print(X_data.shape, y_data.shape, "\n", classes)
 
     X_data, y_data = balance_dataset(X_data, y_data,

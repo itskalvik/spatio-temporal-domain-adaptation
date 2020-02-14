@@ -4,7 +4,6 @@ L2_WEIGHT_DECAY = 1e-4
 BATCH_NORM_DECAY = 0.9
 BATCH_NORM_EPSILON = 1e-5
 
-
 """Regularizer for constrictive regularization.
 """
 class ConstrictiveRegularizer(tf.keras.regularizers.Regularizer):
@@ -64,7 +63,8 @@ Returns:
   A Keras model instance for the block.
 """
 class IdentityBlock(tf.keras.Model):
-  def __init__(self, kernel_size, filters, stage, block, activation='relu', regularizer='batchnorm', dropout_rate=0):
+  def __init__(self, kernel_size, filters, stage, block, activation='relu',
+               regularizer='batchnorm', dropout_rate=0):
     self.activation = activation
 
     conv_name_base = 'res' + str(stage) + block + '_branch'
@@ -72,10 +72,11 @@ class IdentityBlock(tf.keras.Model):
 
     super().__init__(name='stage-' + str(stage) + '_block-' + block)
 
-    filters1, filters2, filters3 = filters
+    filters1, filters2 = filters
     bn_axis = -1
 
-    self.conv2a = tf.keras.layers.Conv2D(filters1, (1, 1),
+    self.conv2a = tf.keras.layers.Conv2D(filters1, kernel_size,
+                                         padding='same',
                                          use_bias=False,
                                          kernel_initializer='he_normal',
                                          kernel_regularizer=tf.keras.regularizers.l2(L2_WEIGHT_DECAY),
@@ -106,21 +107,6 @@ class IdentityBlock(tf.keras.Model):
                                                        name=bn_name_base + '2b')
     self.act2  = tf.keras.layers.Activation(self.activation)
 
-    self.conv2c = tf.keras.layers.Conv2D(filters3, (1, 1),
-                                         use_bias=False,
-                                         kernel_initializer='he_normal',
-                                         kernel_regularizer=tf.keras.regularizers.l2(L2_WEIGHT_DECAY),
-                                         name=conv_name_base + '2c')
-    if regularizer.lower() == 'dropout':
-        self.bn2c = tf.keras.layers.Dropout(rate=dropout_rate,
-                                            name=bn_name_base + '2c')
-    elif regularizer.lower() == 'batchnorm':
-        self.bn2c = tf.keras.layers.BatchNormalization(axis=bn_axis,
-                                                       momentum=BATCH_NORM_DECAY,
-                                                       epsilon=BATCH_NORM_EPSILON,
-                                                       name=bn_name_base + '2c')
-    self.act3  = tf.keras.layers.Activation(self.activation)
-
   def call(self, input_tensor, training=False):
     x = self.conv2a(input_tensor)
     x = self.bn2a(x, training=training)
@@ -128,13 +114,9 @@ class IdentityBlock(tf.keras.Model):
 
     x = self.conv2b(x)
     x = self.bn2b(x, training=training)
-    x = self.act2(x)
-
-    x = self.conv2c(x)
-    x = self.bn2c(x, training=training)
 
     x = tf.keras.layers.add([x, input_tensor])
-    x = self.act3(x)
+    x = self.act2(x)
     return x
 
 
@@ -164,10 +146,11 @@ class ConvBlock(tf.keras.Model):
 
     super().__init__(name='stage-' + str(stage) + '_block-' + block)
 
-    filters1, filters2, filters3 = filters
+    filters1, filters2 = filters
     bn_axis = -1
 
-    self.conv2a = tf.keras.layers.Conv2D(filters1, (1, 1),
+    self.conv2a = tf.keras.layers.Conv2D(filters1, kernel_size,
+                                         padding='same',
                                          use_bias=False,
                                          kernel_initializer='he_normal',
                                          kernel_regularizer=tf.keras.regularizers.l2(L2_WEIGHT_DECAY),
@@ -199,22 +182,9 @@ class ConvBlock(tf.keras.Model):
                                                        name=bn_name_base + '2b')
     self.act2  = tf.keras.layers.Activation(self.activation)
 
-    self.conv2c = tf.keras.layers.Conv2D(filters3, (1, 1),
-                                         use_bias=False,
-                                         kernel_initializer='he_normal',
-                                         kernel_regularizer=tf.keras.regularizers.l2(L2_WEIGHT_DECAY),
-                                         name=conv_name_base + '2c')
-    if regularizer.lower() == 'dropout':
-        self.bn2c = tf.keras.layers.Dropout(rate=dropout_rate,
-                                            name=bn_name_base + '2c')
-    elif regularizer.lower() == 'batchnorm':
-        self.bn2c = tf.keras.layers.BatchNormalization(axis=bn_axis,
-                                                       momentum=BATCH_NORM_DECAY,
-                                                       epsilon=BATCH_NORM_EPSILON,
-                                                       name=bn_name_base + '2c')
-
-    self.conv2s = tf.keras.layers.Conv2D(filters3, (1, 1),
+    self.conv2s = tf.keras.layers.Conv2D(filters2, kernel_size,
                                          strides=strides,
+                                         padding='same',
                                          use_bias=False,
                                          kernel_initializer='he_normal',
                                          kernel_regularizer=tf.keras.regularizers.l2(L2_WEIGHT_DECAY),
@@ -228,8 +198,6 @@ class ConvBlock(tf.keras.Model):
                                                        epsilon=BATCH_NORM_EPSILON,
                                                        name=bn_name_base + '2s')
 
-    self.act3  = tf.keras.layers.Activation(self.activation)
-
   def call(self, input_tensor, training=False):
     x = self.conv2a(input_tensor)
     x = self.bn2a(x, training=training)
@@ -237,16 +205,12 @@ class ConvBlock(tf.keras.Model):
 
     x = self.conv2b(x)
     x = self.bn2b(x, training=training)
-    x = self.act2(x)
-
-    x = self.conv2c(x)
-    x = self.bn2c(x, training=training)
 
     shortcut = self.conv2s(input_tensor)
     shortcut = self.bn2s(shortcut, training=training)
 
     x = tf.keras.layers.add([x, shortcut])
-    x = self.act3(x)
+    x = self.act2(x)
     return x
 
 
@@ -259,14 +223,14 @@ Returns:
     A Keras model instance.
 """
 class ResNet50AMCA(tf.keras.Model):
-  def __init__(self, num_classes, num_features, activation='relu',
+  def __init__(self, num_classes, num_features, num_filters=64, activation='relu',
                regularizer='batchnorm', dropout_rate=0, ca_decay=1e-3):
     super().__init__(name='generator')
     bn_axis = -1
     self.activation = activation
     self.num_classes = num_classes
 
-    self.conv1 = tf.keras.layers.Conv2D(32, (7, 7),
+    self.conv1 = tf.keras.layers.Conv2D(num_filters, (7, 7),
                                         strides=(2, 2),
                                         padding='valid',
                                         use_bias=False,
@@ -288,14 +252,61 @@ class ResNet50AMCA(tf.keras.Model):
                                                   name='max_pool1')
 
     self.blocks = []
-    self.blocks.append(ConvBlock(3, [32, 32, 128], strides=(1, 1), stage=2, block='a', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
-    self.blocks.append(IdentityBlock(3, [32, 32, 128], stage=2, block='b', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
+    self.blocks.append(ConvBlock(3, [num_filters, num_filters],
+                                 strides=(1, 1),
+                                 stage=2,
+                                 block='a',
+                                 activation=self.activation,
+                                 regularizer=regularizer,
+                                 dropout_rate=dropout_rate))
+    self.blocks.append(IdentityBlock(3, [num_filters, num_filters],
+                                     stage=2,
+                                     block='b',
+                                     activation=self.activation,
+                                     regularizer=regularizer,
+                                     dropout_rate=dropout_rate))
 
-    self.blocks.append(ConvBlock(3, [32, 32, 128], stage=3, block='a', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
-    self.blocks.append(IdentityBlock(3, [32, 32, 128], stage=3, block='b', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
+    self.blocks.append(ConvBlock(3, [num_filters*2, num_filters*2],
+                                 strides=(1, 1),
+                                 stage=3,
+                                 block='a',
+                                 activation=self.activation,
+                                 regularizer=regularizer,
+                                 dropout_rate=dropout_rate))
+    self.blocks.append(IdentityBlock(3, [num_filters*2, num_filters*2],
+                                     stage=3,
+                                     block='b',
+                                     activation=self.activation,
+                                     regularizer=regularizer,
+                                     dropout_rate=dropout_rate))
 
-    self.blocks.append(ConvBlock(3, [128, 128, 512], stage=4, block='a', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
-    self.blocks.append(IdentityBlock(3, [128, 128, 512], stage=4, block='b', activation=self.activation, regularizer=regularizer, dropout_rate=dropout_rate))
+    self.blocks.append(ConvBlock(3, [num_filters*3, num_filters*3],
+                                 strides=(1, 1),
+                                 stage=4,
+                                 block='a',
+                                 activation=self.activation,
+                                 regularizer=regularizer,
+                                 dropout_rate=dropout_rate))
+    self.blocks.append(IdentityBlock(3, [num_filters*3, num_filters*3],
+                                     stage=4,
+                                     block='b',
+                                     activation=self.activation,
+                                     regularizer=regularizer,
+                                     dropout_rate=dropout_rate))
+
+    self.blocks.append(ConvBlock(3, [num_filters*4, num_filters*4],
+                                 strides=(1, 1),
+                                 stage=5,
+                                 block='a',
+                                 activation=self.activation,
+                                 regularizer=regularizer,
+                                 dropout_rate=dropout_rate))
+    self.blocks.append(IdentityBlock(3, [num_filters*4, num_filters*4],
+                                     stage=5,
+                                     block='b',
+                                     activation=self.activation,
+                                     regularizer=regularizer,
+                                     dropout_rate=dropout_rate))
 
     self.avg_pool = tf.keras.layers.GlobalAveragePooling2D(name='avg_pool')
     self.fc1 = tf.keras.layers.Dense(num_features,
@@ -305,6 +316,7 @@ class ResNet50AMCA(tf.keras.Model):
                                      bias_regularizer=tf.keras.regularizers.l2(L2_WEIGHT_DECAY),
                                      activity_regularizer=ConstrictiveRegularizer(ca_decay),
                                      name='fc1')
+
     self.logits = AMDense(num_classes,
                           kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.01),
                           kernel_regularizer=ConstrictiveRegularizer(ca_decay),

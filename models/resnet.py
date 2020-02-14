@@ -261,7 +261,6 @@ class ResNet50(tf.keras.Model):
                                      regularizer=regularizer,
                                      dropout_rate=dropout_rate))
 
-
     self.avg_pool = tf.keras.layers.GlobalAveragePooling2D(name='avg_pool')
     self.fc1 = tf.keras.layers.Dense(num_features,
                                      activation=self.activation,

@@ -1,6 +1,5 @@
-repo_path = "/users/kjakkala/mmwave"
-
 import os
+repo_path = os.getenv('MMWAVE_PATH')
 import sys
 sys.path.append(os.path.join(repo_path, 'models'))
 from utils import *
@@ -16,9 +15,10 @@ from sklearn.metrics import confusion_matrix
 
 def get_parser():
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--epochs', type=int, default=4000)
-    parser.add_argument('--init_lr', type=float, default=0.01)
-    parser.add_argument('--num_features', type=int, default=64)
+    parser.add_argument('--epochs', type=int, default=2000)
+    parser.add_argument('--init_lr', type=float, default=1e-3)
+    parser.add_argument('--num_features', type=int, default=128)
+    parser.add_argument('--model_filters', type=int, default=64)
     parser.add_argument('--activation_fn', default='selu')
     parser.add_argument('--gpu', default='0')
     parser.add_argument('--batch_size', type=int, default=64)
@@ -35,7 +35,7 @@ def get_parser():
     parser.add_argument('--m', type=float, default=0.1)
     parser.add_argument('--ca', type=float, default=1e-3)
     parser.add_argument('--log_dir', default="logs/Baselines/AMCA/")
-    parser.add_argument('--notes', default="AMCABaseline-Final")
+    parser.add_argument('--notes', default="AMCABaseline")
     return parser
 
 def save_arg(arg):
@@ -92,6 +92,7 @@ if __name__=='__main__':
     init_lr         = arg.init_lr
     num_features    = arg.num_features
     activation_fn   = arg.activation_fn
+    model_filters   = arg.model_filters
     anneal          = arg.anneal
     s               = arg.s
     m               = arg.m
@@ -121,7 +122,6 @@ if __name__=='__main__':
     '''
 
     X_data, y_data, classes = get_h5dataset(os.path.join(dataset_path, 'source_data.h5'))
-    X_data = resize_data(X_data)
     print(X_data.shape, y_data.shape, "\n", classes)
 
     X_data, y_data = balance_dataset(X_data, y_data,
@@ -261,6 +261,7 @@ if __name__=='__main__':
                                                                    cycle=True)
     model      = ResNet50AMCA(num_classes,
                               num_features,
+                              num_filters=model_filters,
                               activation=activation_fn,
                               ca_decay=ca)
     optimizer  = tf.keras.optimizers.Adam(learning_rate=learning_rate)
