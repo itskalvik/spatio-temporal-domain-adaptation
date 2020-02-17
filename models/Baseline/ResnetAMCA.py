@@ -315,6 +315,15 @@ if __name__=='__main__':
       with summary_writer.as_default():
         tf.summary.image("Server Test Confusion Matrix", cm_image, step=epoch)
 
+      pred_labels = []
+      for data in conf_test_set:
+        pred_labels.extend(test_step(data[0]))
+      conference_test_acc(pred_labels, y_test_conf)
+      cm = confusion_matrix(np.argmax(y_test_conf, axis=-1), np.argmax(pred_labels, axis=-1))
+      cm_image = plot_to_image(plot_confusion_matrix(cm, class_names=classes))
+      with summary_writer.as_default():
+        tf.summary.image("Conference Test Confusion Matrix", cm_image, step=epoch)
+
       with summary_writer.as_default():
         tf.summary.scalar("temporal_test_acc", temporal_test_acc.result(), step=epoch)
         tf.summary.scalar("source_train_acc", source_train_acc.result(), step=epoch)
