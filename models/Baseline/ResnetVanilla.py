@@ -28,6 +28,7 @@ def get_parser():
     parser.add_argument('--train_server_days', type=int, default=0)
     parser.add_argument('--train_conference_days', type=int, default=0)
     parser.add_argument('--save_freq', type=int, default=25)
+    parser.add_argument('--log_images_freq', type=int, default=200)
     parser.add_argument('--checkpoint_path', default="checkpoints")
     parser.add_argument('--summary_writer_path', default="tensorboard_logs")
     parser.add_argument('--log_dir', default="logs/Baselines/Vanilla/")
@@ -82,8 +83,10 @@ if __name__=='__main__':
     num_features    = arg.num_features
     activation_fn   = arg.activation_fn
     model_filters   = arg.model_filters
+    log_images_freq = arg.log_images_freq
 
     run_params      = dict(vars(arg))
+    del run_params['log_images_freq']
     del run_params['log_dir']
     del run_params['checkpoint_path']
     del run_params['summary_writer_path']
@@ -265,46 +268,51 @@ if __name__=='__main__':
       for data in time_test_set:
         pred_labels.extend(test_step(data[0]))
       temporal_test_acc(pred_labels, y_test_trg)
-      cm = confusion_matrix(np.argmax(y_test_trg, axis=-1), np.argmax(pred_labels, axis=-1))
-      cm_image = plot_to_image(plot_confusion_matrix(cm, class_names=classes))
-      with summary_writer.as_default():
-        tf.summary.image("Temporal Test Confusion Matrix", cm_image, step=epoch)
+      if (epoch + 1) % log_images_freq == 0:
+          cm = confusion_matrix(np.argmax(y_test_trg, axis=-1), np.argmax(pred_labels, axis=-1))
+          cm_image = plot_to_image(plot_confusion_matrix(cm, class_names=classes))
+          with summary_writer.as_default():
+            tf.summary.image("Temporal Test Confusion Matrix", cm_image, step=epoch)
 
       pred_labels = []
       for data in src_test_set:
         pred_labels.extend(test_step(data[0]))
       source_test_acc(pred_labels, y_test_src)
-      cm = confusion_matrix(np.argmax(y_test_src, axis=-1), np.argmax(pred_labels, axis=-1))
-      cm_image = plot_to_image(plot_confusion_matrix(cm, class_names=classes))
-      with summary_writer.as_default():
-        tf.summary.image("Source Test Confusion Matrix", cm_image, step=epoch)
+      if (epoch + 1) % log_images_freq == 0:
+          cm = confusion_matrix(np.argmax(y_test_src, axis=-1), np.argmax(pred_labels, axis=-1))
+          cm_image = plot_to_image(plot_confusion_matrix(cm, class_names=classes))
+          with summary_writer.as_default():
+            tf.summary.image("Source Test Confusion Matrix", cm_image, step=epoch)
 
       pred_labels = []
       for data in office_test_set:
         pred_labels.extend(test_step(data[0]))
       office_test_acc(pred_labels, y_data_office)
-      cm = confusion_matrix(np.argmax(y_data_office, axis=-1), np.argmax(pred_labels, axis=-1))
-      cm_image = plot_to_image(plot_confusion_matrix(cm, class_names=classes))
-      with summary_writer.as_default():
-        tf.summary.image("Office Test Confusion Matrix", cm_image, step=epoch)
+      if (epoch + 1) % log_images_freq == 0:
+          cm = confusion_matrix(np.argmax(y_data_office, axis=-1), np.argmax(pred_labels, axis=-1))
+          cm_image = plot_to_image(plot_confusion_matrix(cm, class_names=classes))
+          with summary_writer.as_default():
+            tf.summary.image("Office Test Confusion Matrix", cm_image, step=epoch)
 
       pred_labels = []
       for data in server_test_set:
         pred_labels.extend(test_step(data[0]))
       server_test_acc(pred_labels, y_test_server)
-      cm = confusion_matrix(np.argmax(y_test_server, axis=-1), np.argmax(pred_labels, axis=-1))
-      cm_image = plot_to_image(plot_confusion_matrix(cm, class_names=classes))
-      with summary_writer.as_default():
-        tf.summary.image("Server Test Confusion Matrix", cm_image, step=epoch)
+      if (epoch + 1) % log_images_freq == 0:
+          cm = confusion_matrix(np.argmax(y_test_server, axis=-1), np.argmax(pred_labels, axis=-1))
+          cm_image = plot_to_image(plot_confusion_matrix(cm, class_names=classes))
+          with summary_writer.as_default():
+            tf.summary.image("Server Test Confusion Matrix", cm_image, step=epoch)
 
       pred_labels = []
       for data in conf_test_set:
         pred_labels.extend(test_step(data[0]))
       conference_test_acc(pred_labels, y_test_conf)
-      cm = confusion_matrix(np.argmax(y_test_conf, axis=-1), np.argmax(pred_labels, axis=-1))
-      cm_image = plot_to_image(plot_confusion_matrix(cm, class_names=classes))
-      with summary_writer.as_default():
-        tf.summary.image("Conference Test Confusion Matrix", cm_image, step=epoch)
+      if (epoch + 1) % log_images_freq == 0:
+          cm = confusion_matrix(np.argmax(y_test_conf, axis=-1), np.argmax(pred_labels, axis=-1))
+          cm_image = plot_to_image(plot_confusion_matrix(cm, class_names=classes))
+          with summary_writer.as_default():
+            tf.summary.image("Conference Test Confusion Matrix", cm_image, step=epoch)
 
       with summary_writer.as_default():
         tf.summary.scalar("temporal_test_acc", temporal_test_acc.result(), step=epoch)
