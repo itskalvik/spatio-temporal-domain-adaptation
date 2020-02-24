@@ -1,0 +1,59 @@
+========================================================================
+Start Time:  Thu Feb 20 14:40:51 EST 2020
+User/Group:  kjakkala / kjakkala
+Job ID:      1665118.cph-m1.uncc.edu
+Job Name:    1days-256-conf
+Job Details: pmem=2gb,prologue=/users/kjakkala/torque/prologue.sh,epi
+             logue=/users/kjakkala/torque/epilogue.sh,walltime=200:00
+             :00,nodes=1:ppn=1:gpus=1:gtx1080ti,mem=16gb,neednodes=1:
+             ppn=1:gpus=1:gtx1080ti
+Queue:       titan
+Nodes:       fac-h2.uncc.edu[1] 
+========================================================================
+
+
+
+Original Data shapes:
+X_train_src:    (855, 256, 256, 1)   (855, 10)   
+X_test_src:     (95, 256, 256, 1)    (95, 10)    
+X_train_trg:    (0, 256, 256, 1)     (0, 10)     
+X_test_trg:     (8550, 256, 256, 1)  (8550, 10)  
+X_train_conf:   (500, 256, 256, 1)   (500, 10)   
+X_test_conf:    (2000, 256, 256, 1)  (2000, 10)  
+X_train_server: (0, 256, 256, 1)     (0,)        
+X_test_server:  (2496, 256, 256, 1)  (2496, 10)  
+X_train_office: (0, 256, 256, 1)     (0,)        
+X_test_office:  (2498, 256, 256, 1)  (2498, 10)  
+
+Encoding Data shapes:
+X_train_src:    (855, 256)   (855, 10) 
+X_test_src:     (95, 256)    (95, 10)  
+X_train_trg:    (0,)         (0, 10)   
+X_test_trg:     (8550, 256)  (8550, 10)
+X_train_conf:   (500, 256)   (500, 10) 
+X_test_conf:    (2000, 256)  (2000, 10)
+X_train_server: (0,)         (0,)      
+X_test_server:  (2496, 256)  (2496, 10)
+X_train_office: (0,)         (0,)      
+X_test_office:  (2498, 256)  (2498, 10)
+
+Accuracies:
+Data            AMCA     Kmeans
+X_train_src:    1.0000 | 0.9006
+X_test_src:     0.9895 | 0.8947
+X_train_trg:    0.0000 | 0.0000
+X_test_trg:     0.9520 | 0.7940
+X_train_conf:   0.5940 | 0.7820
+X_test_conf:    0.6630 | 0.7700
+X_train_server: 0.0000 | 0.0000
+X_test_server:  0.5248 | 0.5982
+X_train_office: 0.0000 | 0.0000
+X_test_office:  0.4860 | 0.5356
+
+
+========================================================================
+End Time:    Thu Feb 20 14:42:25 EST 2020
+Resources:   cput=00:01:33,vmem=24537076kb,walltime=00:01:34,mem=5448
+             744kb,energy_used=0
+Exit Value:  0
+========================================================================

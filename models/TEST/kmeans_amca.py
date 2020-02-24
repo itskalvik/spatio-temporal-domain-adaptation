@@ -44,17 +44,13 @@ def generate_kmeans_model(source_x, source_y, target_x, target_y, num_classes=10
         centers.append(source_x[np.where(np.argmax(source_y, axis=1)==i)].mean(axis=0))
     centers = np.array(centers)
 
-    model = KMeans(n_clusters=num_classes, n_init=10).fit(target_x)
-    print(model.labels_)
-    print(np.argmax(target_y, axis=1))
-    return model, [mode(model.labels_[i:i+50]) for i in range(0, labels.shape[0], 50)]
+    model = KMeans(n_clusters=num_classes, n_init=10, init=centers).fit(target_x)
+    return model
 
-def get_kmeans_acc(model, data, labels, print_labels=False):
+def get_kmeans_acc(model, data, labels):
     if data.shape[0] > 0:
         pred_labels = model.predict(data)
         labels = np.argmax(labels, axis=1)
-        if print_labels:
-            print(pred_labels)
         return (pred_labels==labels).mean()
     else:
         return 0.0
@@ -66,6 +62,7 @@ def get_parser():
     parser.add_argument('--train_source_unlabeled_days', type=int, default=0)
     parser.add_argument('--train_server_days', type=int, default=0)
     parser.add_argument('--train_conference_days', type=int, default=0)
+    parser.add_argument('--train_office_days', type=int, default=0)
     parser.add_argument('--log_path', default="logs/")
     parser.add_argument('--enc_path', default="data/encodings-server.h5")
     return parser
@@ -86,6 +83,7 @@ if __name__=='__main__':
     train_source_days = arg.train_source_days
     train_server_days = arg.train_server_days
     train_conference_days = arg.train_conference_days
+    train_office_days = arg.train_office_days
     train_source_unlabeled_days = arg.train_source_unlabeled_days
     num_features    = args.num_features
     activation_fn   = args.activation_fn
@@ -161,10 +159,10 @@ if __name__=='__main__':
                                                                                              'target_server_data.h5'),
                                                                                 classes,
                                                                                 train_server_days)
-    _             , _             , X_data_office, y_data_office = get_trg_data(os.path.join(dataset_path,
+    X_train_office, y_train_office, X_test_office, y_test_office = get_trg_data(os.path.join(dataset_path,
                                                                                              'target_office_data.h5'),
                                                                                 classes,
-                                                                                0)
+                                                                                train_office_days)
 
     print("\nOriginal Data shapes:")
     print("X_train_src:    {:<20} {:<12}".format(str(X_train_src.shape), str(y_train_src.shape)))
@@ -175,7 +173,8 @@ if __name__=='__main__':
     print("X_test_conf:    {:<20} {:<12}".format(str(X_test_conf.shape), str(y_test_conf.shape)))
     print("X_train_server: {:<20} {:<12}".format(str(X_train_server.shape), str(y_train_server.shape)))
     print("X_test_server:  {:<20} {:<12}".format(str(X_test_server.shape), str(y_test_server.shape)))
-    print("X_data_office:  {:<20} {:<12}".format(str(X_data_office.shape), str(y_data_office.shape)))
+    print("X_train_office: {:<20} {:<12}".format(str(X_train_office.shape), str(y_train_office.shape)))
+    print("X_test_office:  {:<20} {:<12}".format(str(X_test_office.shape), str(y_test_office.shape)))
 
     '''
     Generate encodings
@@ -202,7 +201,8 @@ if __name__=='__main__':
     X_train_server, X_train_server_acc = get_acc_encodings(X_train_server, y_train_server)
     X_test_server,  X_test_server_acc  = get_acc_encodings(X_test_server, y_test_server)
 
-    X_data_office, X_data_office_acc = get_acc_encodings(X_data_office, y_data_office)
+    X_train_office, X_train_office_acc = get_acc_encodings(X_train_office, y_train_office)
+    X_test_office, X_test_office_acc   = get_acc_encodings(X_test_office, y_test_office)
 
     print("\nEncoding Data shapes:")
     print("X_train_src:    {:<12} {:<10}".format(str(X_train_src.shape), str(y_train_src.shape)))
@@ -213,12 +213,21 @@ if __name__=='__main__':
     print("X_test_conf:    {:<12} {:<10}".format(str(X_test_conf.shape), str(y_test_conf.shape)))
     print("X_train_server: {:<12} {:<10}".format(str(X_train_server.shape), str(y_train_server.shape)))
     print("X_test_server:  {:<12} {:<10}".format(str(X_test_server.shape), str(y_test_server.shape)))
-    print("X_data_office:  {:<12} {:<10}".format(str(X_data_office.shape), str(y_data_office.shape)))
+    print("X_train_office: {:<12} {:<10}".format(str(X_train_office.shape), str(y_train_office.shape)))
+    print("X_test_office:  {:<12} {:<10}".format(str(X_test_office.shape), str(y_test_office.shape)))
 
-    kmeans_model, mode_data = generate_kmeans_model(X_train_src, y_train_src,
-                                         X_train_server, y_train_server,
-                                         num_classes=num_classes)
-    print(mode_data)
+    if train_server_days > 0:
+        kmeans_model = generate_kmeans_model(X_train_src, y_train_src,
+                                             X_train_server, y_train_server,
+                                             num_classes=num_classes)
+    elif train_conference_days > 0:
+        kmeans_model = generate_kmeans_model(X_train_src, y_train_src,
+                                             X_train_conf, y_train_conf,
+                                             num_classes=num_classes)
+    elif train_office_days > 0:
+        kmeans_model = generate_kmeans_model(X_train_src, y_train_src,
+                                             X_train_office, y_train_office,
+                                             num_classes=num_classes)
 
     X_train_src_acc_kmeans = get_kmeans_acc(kmeans_model, X_train_src, y_train_src)
     X_test_src_acc_kmeans = get_kmeans_acc(kmeans_model, X_test_src, y_test_src)
@@ -226,9 +235,10 @@ if __name__=='__main__':
     X_test_trg_acc_kmeans = get_kmeans_acc(kmeans_model, X_test_trg, y_test_trg)
     X_train_conf_acc_kmeans = get_kmeans_acc(kmeans_model, X_train_conf, y_train_conf)
     X_test_conf_acc_kmeans = get_kmeans_acc(kmeans_model, X_test_conf, y_test_conf)
-    X_train_server_acc_kmeans = get_kmeans_acc(kmeans_model, X_train_server, y_train_server, print_labels=True)
+    X_train_server_acc_kmeans = get_kmeans_acc(kmeans_model, X_train_server, y_train_server)
     X_test_server_acc_kmeans = get_kmeans_acc(kmeans_model, X_test_server, y_test_server)
-    X_data_office_acc_kmeans = get_kmeans_acc(kmeans_model, X_data_office, y_data_office)
+    X_train_office_acc_kmeans = get_kmeans_acc(kmeans_model, X_train_office, y_train_office)
+    X_test_office_acc_kmeans = get_kmeans_acc(kmeans_model, X_test_office, y_test_office)
 
     print("\nAccuracies:")
     print("Data            AMCA     Kmeans")
@@ -240,4 +250,5 @@ if __name__=='__main__':
     print("X_test_conf:    {:.4f} | {:.4f}".format(X_test_conf_acc, X_test_conf_acc_kmeans))
     print("X_train_server: {:.4f} | {:.4f}".format(X_train_server_acc, X_train_server_acc_kmeans))
     print("X_test_server:  {:.4f} | {:.4f}".format(X_test_server_acc, X_test_server_acc_kmeans))
-    print("X_data_office:  {:.4f} | {:.4f}".format(X_data_office_acc, X_data_office_acc_kmeans))
+    print("X_train_office: {:.4f} | {:.4f}".format(X_train_office_acc, X_train_office_acc_kmeans))
+    print("X_test_office:  {:.4f} | {:.4f}".format(X_test_office_acc, X_test_office_acc_kmeans))

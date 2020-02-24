@@ -1,0 +1,56 @@
+========================================================================
+Start Time:  Thu Feb 20 13:50:05 EST 2020
+User/Group:  kjakkala / kjakkala
+Job ID:      1665093.cph-m1.uncc.edu
+Job Name:    3days-256
+Job Details: pmem=2gb,prologue=/users/kjakkala/torque/prologue.sh,epi
+             logue=/users/kjakkala/torque/epilogue.sh,walltime=200:00
+             :00,nodes=1:ppn=1:gpus=1:gtx1080ti,mem=16gb,neednodes=1:
+             ppn=1:gpus=1:gtx1080ti
+Queue:       titan
+Nodes:       fac-h2.uncc.edu[1] 
+========================================================================
+
+
+
+Original Data shapes:
+X_train_src:    (2565, 256, 256, 1)  (2565, 10)  
+X_test_src:     (285, 256, 256, 1)   (285, 10)   
+X_train_trg:    (0, 256, 256, 1)     (0, 10)     
+X_test_trg:     (6650, 256, 256, 1)  (6650, 10)  
+X_train_conf:   (0, 256, 256, 1)     (0,)        
+X_test_conf:    (2500, 256, 256, 1)  (2500, 10)  
+X_train_server: (1497, 256, 256, 1)  (1497, 10)  
+X_test_server:  (999, 256, 256, 1)   (999, 10)   
+X_data_office:  (2498, 256, 256, 1)  (2498, 10)  
+
+Encoding Data shapes:
+X_train_src:    (2565, 256)  (2565, 10)
+X_test_src:     (285, 256)   (285, 10) 
+X_train_trg:    (0,)         (0, 10)   
+X_test_trg:     (6650, 256)  (6650, 10)
+X_train_conf:   (0,)         (0,)      
+X_test_conf:    (2500, 256)  (2500, 10)
+X_train_server: (1497, 256)  (1497, 10)
+X_test_server:  (999, 256)   (999, 10) 
+X_data_office:  (2498, 256)  (2498, 10)
+
+Accuracies:
+Data            AMCA     Kmeans
+X_train_src:    1.0000 | 1.0000
+X_test_src:     1.0000 | 1.0000
+X_train_trg:    0.0000 | 0.0000
+X_test_trg:     0.9928 | 0.9812
+X_train_conf:   0.0000 | 0.0000
+X_test_conf:    0.9708 | 0.9536
+X_train_server: 0.8724 | 0.8644
+X_test_server:  0.9069 | 0.8158
+X_data_office:  0.9191 | 0.8731
+
+
+========================================================================
+End Time:    Thu Feb 20 13:52:58 EST 2020
+Resources:   cput=00:01:48,vmem=23963656kb,walltime=00:02:53,mem=4938
+             784kb,energy_used=0
+Exit Value:  0
+========================================================================
