@@ -20,7 +20,6 @@ def get_parser():
     parser.add_argument('--num_features', type=int, default=128)
     parser.add_argument('--model_filters', type=int, default=64)
     parser.add_argument('--activation_fn', default='selu')
-    parser.add_argument('--gpu', default='0')
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--num_classes', type=int, default=10)
     parser.add_argument('--train_source_days', type=int, default=3)
@@ -79,8 +78,6 @@ if __name__=='__main__':
     parser = get_parser()
     arg = parser.parse_args()
 
-    os.environ['CUDA_VISIBLE_DEVICES']=arg.gpu
-
     dataset_path    = os.path.join(repo_path, 'data')
     num_classes     = arg.num_classes
     batch_size      = arg.batch_size
@@ -108,7 +105,6 @@ if __name__=='__main__':
     del run_params['log_dir']
     del run_params['checkpoint_path']
     del run_params['summary_writer_path']
-    del run_params['gpu']
     del run_params['save_freq']
     sorted(run_params)
 
