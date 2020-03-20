@@ -4,6 +4,7 @@ import sys
 sys.path.append(os.path.join(repo_path, 'models'))
 from utils import *
 from resnet_amca import ResNet50AMCA
+from pix2pix import upsample
 import tensorflow as tf
 import numpy as np
 import argparse
@@ -18,7 +19,9 @@ def get_parser():
     parser.add_argument('--epochs', type=int, default=2000)
     parser.add_argument('--init_lr', type=float, default=1e-3)
     parser.add_argument('--num_features', type=int, default=128)
+    parser.add_argument('--model_filters_dec', type=int, default=64)
     parser.add_argument('--model_filters', type=int, default=64)
+    parser.add_argument('--recon_lambda', type=float, default=10)
     parser.add_argument('--activation_fn', default='selu')
     parser.add_argument('--gpu', default='0')
     parser.add_argument('--batch_size', type=int, default=64)
@@ -35,9 +38,10 @@ def get_parser():
     parser.add_argument('--s', type=int, default=10)
     parser.add_argument('--m', type=float, default=0.1)
     parser.add_argument('--ca', type=float, default=1e-3)
-    parser.add_argument('--log_dir', default="logs/Baselines/AMCA/")
-    parser.add_argument('--notes', default="AMCABaseline")
+    parser.add_argument('--log_dir', default="logs/Baselines/AMCARecon/")
+    parser.add_argument('--notes', default="AMCAReconBaseline")
     return parser
+
 
 def save_arg(arg):
     arg_dict = vars(arg)
@@ -46,9 +50,11 @@ def save_arg(arg):
     with open(os.path.join(arg.log_dir, "config.yaml"), 'w') as f:
         yaml.dump(arg_dict, f)
 
+
 def get_cross_entropy_loss(labels, logits):
   loss = tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=logits)
   return tf.reduce_mean(loss)
+
 
 def AM_logits(labels, logits, m, s):
   cos_theta = tf.clip_by_value(logits, -1,1)
@@ -56,24 +62,81 @@ def AM_logits(labels, logits, m, s):
   adjust_theta = s * tf.where(tf.equal(labels,1), phi, cos_theta)
   return adjust_theta
 
+
 @tf.function
 def test_step(images):
-  logits, _ = model(images, training=False)
+  logits, _, _ = model(images, training=False)
   return tf.nn.softmax(logits)
+
 
 @tf.function
 def train_step(src_images, src_labels, s, m):
   with tf.GradientTape() as tape:
-    src_logits, _ = model(src_images, training=True)
+    src_logits, _, src_dec = model(src_images, training=True)
     src_logits    = AM_logits(labels=src_labels, logits=src_logits, m=m, s=s)
     batch_cross_entropy_loss  = get_cross_entropy_loss(labels=src_labels,
                                                        logits=src_logits)
+    src_rec_loss              = tf.reduce_mean(tf.abs(src_images - src_dec))
+    total_loss = batch_cross_entropy_loss + recon_lambda * src_rec_loss
 
-  gradients = tape.gradient(batch_cross_entropy_loss, model.trainable_variables)
+  gradients = tape.gradient(total_loss, model.trainable_variables)
   optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
   source_train_acc(src_labels, tf.nn.softmax(src_logits))
   cross_entropy_loss(batch_cross_entropy_loss)
+  source_rec_loss(src_rec_loss)
+
+
+class Decoder(tf.keras.Model):
+  def __init__(self, activation='relu', num_filters=64):
+    super().__init__(name='decoder')
+    self.up_stack = [
+      upsample(num_filters*8, 4, "batchnorm", activation),
+      upsample(num_filters*4, 4, "batchnorm", activation),
+      upsample(num_filters*2, 4, "batchnorm", activation),
+      upsample(num_filters,   4, "batchnorm", activation),
+    ]
+
+    initializer = tf.random_normal_initializer(0., 0.02)
+    self.last_conv = tf.keras.layers.Conv2DTranspose(1, 2,
+                                                     strides=2,
+                                                     padding='same',
+                                                     kernel_initializer=initializer,
+                                                     activation='tanh')
+
+  def call(self, x, training=False):
+    for up in self.up_stack:
+      x = up(x, training=training)
+    x = self.last_conv(x)
+    return x
+
+
+class ReconstructionResNet50(ResNet50AMCA):
+  def __init__(self, num_classes, num_features, num_filters=64, activation='relu',
+               regularizer='batchnorm', dropout_rate=0, ca_decay=1e-3,
+               num_filters_dec=128):
+    super().__init__(num_classes, num_features, num_filters, activation,
+                     regularizer, dropout_rate, ca_decay)
+    self.decoder = Decoder(activation=self.activation,
+                           num_filters=num_filters_dec)
+
+  def call(self, img_input, training=False):
+    x = self.conv1(img_input)
+    x = self.bn1(x, training=training)
+    x = self.act1(x)
+    x = self.max_pool1(x)
+
+    for block in self.blocks:
+      x = block(x, training=training)
+
+    decoded = self.decoder(x, training=training)
+
+    x = self.avg_pool(x)
+    fc1 = self.fc1(x)
+    logits = self.logits(fc1)
+
+    return logits, fc1, decoded
+
 
 if __name__=='__main__':
     parser = get_parser()
@@ -94,11 +157,13 @@ if __name__=='__main__':
     num_features    = arg.num_features
     activation_fn   = arg.activation_fn
     model_filters   = arg.model_filters
+    model_filters_dec = arg.model_filters_dec
     anneal          = arg.anneal
     s               = arg.s
     m               = arg.m
     ca              = arg.ca
     log_images_freq = arg.log_images_freq
+    recon_lambda    = arg.recon_lambda
 
     run_params      = dict(vars(arg))
     del run_params['train_server_days']
@@ -259,17 +324,19 @@ if __name__=='__main__':
     server_test_acc      = tf.keras.metrics.CategoricalAccuracy(name='server_test_acc')
     conference_train_acc = tf.keras.metrics.CategoricalAccuracy(name='conference_train_acc')
     conference_test_acc  = tf.keras.metrics.CategoricalAccuracy(name='conference_test_acc')
+    source_rec_loss      = tf.keras.metrics.Mean(name='source_rec_loss')
     cross_entropy_loss   = tf.keras.metrics.Mean(name='cross_entropy_loss')
 
     learning_rate  = tf.keras.optimizers.schedules.PolynomialDecay(init_lr,
                                                                    decay_steps=(X_train_src.shape[0]//batch_size)*200,
                                                                    end_learning_rate=init_lr*1e-2,
                                                                    cycle=True)
-    model      = ResNet50AMCA(num_classes,
-                              num_features,
-                              num_filters=model_filters,
-                              activation=activation_fn,
-                              ca_decay=ca)
+    model      = ReconstructionResNet50(num_classes,
+                                        num_features,
+                                        num_filters=model_filters,
+                                        activation=activation_fn,
+                                        ca_decay=ca,
+                                        num_filters_dec=model_filters_dec)
     optimizer  = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     summary_writer = tf.summary.create_file_writer(summary_writer_path)
@@ -343,6 +410,7 @@ if __name__=='__main__':
         tf.summary.scalar("server_test_acc", server_test_acc.result(), step=epoch)
         tf.summary.scalar("conference_test_acc", conference_test_acc.result(), step=epoch)
         tf.summary.scalar("cross_entropy_loss", cross_entropy_loss.result(), step=epoch)
+        tf.summary.scalar("source_rec_loss", source_rec_loss.result(), step=epoch)
 
       if (epoch + 1) % save_freq == 0:
         ckpt_save_path = ckpt_manager.save()
@@ -356,6 +424,7 @@ if __name__=='__main__':
       server_test_acc.reset_states()
       conference_test_acc.reset_states()
       cross_entropy_loss.reset_states()
+      source_rec_loss.reset_states()
 
     if save_freq != 0:
       ckpt_save_path = ckpt_manager.save()

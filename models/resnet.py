@@ -220,7 +220,6 @@ class ResNet50(tf.keras.Model):
                                      dropout_rate=dropout_rate))
 
     self.blocks.append(ConvBlock(3, [num_filters*2, num_filters*2],
-                                 strides=(1, 1),
                                  stage=3,
                                  block='a',
                                  activation=self.activation,
@@ -233,28 +232,26 @@ class ResNet50(tf.keras.Model):
                                      regularizer=regularizer,
                                      dropout_rate=dropout_rate))
 
-    self.blocks.append(ConvBlock(3, [num_filters*3, num_filters*3],
-                                 strides=(1, 1),
+    self.blocks.append(ConvBlock(3, [num_filters*4, num_filters*4],
                                  stage=4,
                                  block='a',
                                  activation=self.activation,
                                  regularizer=regularizer,
                                  dropout_rate=dropout_rate))
-    self.blocks.append(IdentityBlock(3, [num_filters*3, num_filters*3],
+    self.blocks.append(IdentityBlock(3, [num_filters*4, num_filters*4],
                                      stage=4,
                                      block='b',
                                      activation=self.activation,
                                      regularizer=regularizer,
                                      dropout_rate=dropout_rate))
 
-    self.blocks.append(ConvBlock(3, [num_filters*4, num_filters*4],
-                                 strides=(1, 1),
+    self.blocks.append(ConvBlock(3, [num_filters*8, num_filters*8],
                                  stage=5,
                                  block='a',
                                  activation=self.activation,
                                  regularizer=regularizer,
                                  dropout_rate=dropout_rate))
-    self.blocks.append(IdentityBlock(3, [num_filters*4, num_filters*4],
+    self.blocks.append(IdentityBlock(3, [num_filters*8, num_filters*8],
                                      stage=5,
                                      block='b',
                                      activation=self.activation,
