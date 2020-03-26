@@ -486,6 +486,7 @@ class ResNet50AMCA(tf.keras.Model):
                                      regularizer=regularizer,
                                      dropout_rate=dropout_rate))
 
+    '''
     self.blocks.append(ConvBlock(3, [num_filters*8, num_filters*8],
                                  stage=5,
                                  block='a',
@@ -498,6 +499,7 @@ class ResNet50AMCA(tf.keras.Model):
                                      activation=self.activation,
                                      regularizer=regularizer,
                                      dropout_rate=dropout_rate))
+    '''
 
     self.avg_pool = tf.keras.layers.GlobalAveragePooling2D(name='avg_pool')
     self.fc1 = tf.keras.layers.Dense(num_features,
