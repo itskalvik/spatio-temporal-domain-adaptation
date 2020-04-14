@@ -83,6 +83,9 @@ if __name__=='__main__':
     log_images_freq = arg.log_images_freq
 
     run_params      = dict(vars(arg))
+    del run_params['train_source_unlabeled_days']
+    del run_params['train_conference_days']
+    del run_params['train_server_days']
     del run_params['log_images_freq']
     del run_params['log_dir']
     del run_params['checkpoint_path']
