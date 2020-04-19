@@ -185,7 +185,7 @@ class ResNet50(tf.keras.Model):
 
     self.conv1 = tf.keras.layers.Conv2D(num_filters, (7, 7),
                                         strides=(2, 2),
-                                        padding='valid',
+                                        padding='same',
                                         use_bias=False,
                                         kernel_initializer='he_normal',
                                         kernel_regularizer=tf.keras.regularizers.l2(L2_WEIGHT_DECAY),
@@ -273,8 +273,8 @@ class ResNet50(tf.keras.Model):
                                         bias_regularizer=tf.keras.regularizers.l2(L2_WEIGHT_DECAY),
                                         name='logits')
 
-  def call(self, img_input, training=False):
-    x = self.conv1(img_input)
+  def call(self, x, training=False):
+    x = self.conv1(x)
     x = self.bn1(x, training=training)
     x = self.act1(x)
     x = self.max_pool1(x)

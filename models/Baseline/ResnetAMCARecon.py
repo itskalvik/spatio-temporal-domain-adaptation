@@ -3,7 +3,7 @@ repo_path = os.getenv('MMWAVE_PATH')
 import sys
 sys.path.append(os.path.join(repo_path, 'models'))
 from utils import *
-from resnet_amca import ResNet50AMCA
+from resnet_amca import ResNetAMCA, AM_logits
 from pix2pix import upsample
 import tensorflow as tf
 import numpy as np
@@ -54,14 +54,6 @@ def get_cross_entropy_loss(labels, logits):
   loss = tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=logits)
   return tf.reduce_mean(loss)
 
-
-def AM_logits(labels, logits, m, s):
-  cos_theta = tf.clip_by_value(logits, -1,1)
-  phi = cos_theta - m
-  adjust_theta = s * tf.where(tf.equal(labels,1), phi, cos_theta)
-  return adjust_theta
-
-
 @tf.function
 def test_step(images):
   logits, _, _ = model(images, training=False)
@@ -110,7 +102,7 @@ class Decoder(tf.keras.Model):
     return x
 
 
-class ReconstructionResNet50(ResNet50AMCA):
+class ReconstructionResNet(ResNetAMCA):
   def __init__(self, num_classes, num_features, num_filters=64, activation='relu',
                regularizer='batchnorm', dropout_rate=0, ca_decay=1e-3,
                num_filters_dec=128):
@@ -181,7 +173,7 @@ if __name__=='__main__':
     checkpoint_path = os.path.join(log_dir, arg.checkpoint_path)
 
     save_arg(arg)
-    shutil.copy2(inspect.getfile(ResNet50AMCA), arg.log_dir)
+    shutil.copy2(inspect.getfile(ResNetAMCA), arg.log_dir)
     shutil.copy2(os.path.abspath(__file__), arg.log_dir)
 
     '''
@@ -327,12 +319,12 @@ if __name__=='__main__':
                                                                    decay_steps=(X_train_src.shape[0]//batch_size)*200,
                                                                    end_learning_rate=init_lr*1e-2,
                                                                    cycle=True)
-    model      = ReconstructionResNet50(num_classes,
-                                        num_features,
-                                        num_filters=model_filters,
-                                        activation=activation_fn,
-                                        ca_decay=ca,
-                                        num_filters_dec=model_filters_dec)
+    model      = ReconstructionResNet(num_classes,
+                                      num_features,
+                                      num_filters=model_filters,
+                                      activation=activation_fn,
+                                      ca_decay=ca,
+                                      num_filters_dec=model_filters_dec)
     optimizer  = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     summary_writer = tf.summary.create_file_writer(summary_writer_path)

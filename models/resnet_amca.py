@@ -222,7 +222,7 @@ Args:
 Returns:
     A Keras model instance.
 """
-class ResNet50AMCA(tf.keras.Model):
+class ResNetAMCA(tf.keras.Model):
   def __init__(self, num_classes, num_features, num_filters=64, activation='relu',
                regularizer='batchnorm', dropout_rate=0, ca_decay=1e-3):
     super().__init__(name='generator')
@@ -232,7 +232,7 @@ class ResNet50AMCA(tf.keras.Model):
 
     self.conv1 = tf.keras.layers.Conv2D(num_filters, (7, 7),
                                         strides=(2, 2),
-                                        padding='valid',
+                                        padding='same',
                                         use_bias=False,
                                         kernel_initializer='he_normal',
                                         kernel_regularizer=tf.keras.regularizers.l2(L2_WEIGHT_DECAY),
@@ -319,8 +319,8 @@ class ResNet50AMCA(tf.keras.Model):
                           kernel_regularizer=ConstrictiveRegularizer(ca_decay),
                           name='logits')
 
-  def call(self, img_input, training=False):
-    x = self.conv1(img_input)
+  def call(self, x, training=False):
+    x = self.conv1(x)
     x = self.bn1(x, training=training)
     x = self.act1(x)
     x = self.max_pool1(x)
@@ -333,3 +333,10 @@ class ResNet50AMCA(tf.keras.Model):
     logits = self.logits(fc1)
 
     return logits, fc1
+
+
+def AM_logits(labels, logits, m, s):
+  labels = tf.cast(labels, dtype=tf.float32)
+  cos_theta = tf.clip_by_value(logits, -1,1)
+  adjust_theta = s * (cos_theta - (m*labels))
+  return adjust_theta

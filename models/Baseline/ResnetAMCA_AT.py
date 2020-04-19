@@ -3,7 +3,7 @@ repo_path = os.getenv('MMWAVE_PATH')
 import sys
 sys.path.append(os.path.join(repo_path, 'models'))
 from utils import *
-from resnet_amca import ResNet50AMCA
+from resnet_amca import ResNetAMCA, AM_logits
 import tensorflow as tf
 import numpy as np
 import argparse
@@ -49,12 +49,6 @@ def save_arg(arg):
 def get_cross_entropy_loss(labels, logits):
   loss = tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=logits)
   return tf.reduce_mean(loss)
-
-def AM_logits(labels, logits, m, s):
-  cos_theta = tf.clip_by_value(logits, -1,1)
-  phi = cos_theta - m
-  adjust_theta = s * tf.where(tf.equal(labels,1), phi, cos_theta)
-  return adjust_theta
 
 @tf.function
 def test_step(images):
@@ -152,7 +146,7 @@ if __name__=='__main__':
     checkpoint_path = os.path.join(log_dir, arg.checkpoint_path)
 
     save_arg(arg)
-    shutil.copy2(inspect.getfile(ResNet50AMCA), arg.log_dir)
+    shutil.copy2(inspect.getfile(ResNetAMCA), arg.log_dir)
     shutil.copy2(os.path.abspath(__file__), arg.log_dir)
 
     '''
@@ -299,11 +293,11 @@ if __name__=='__main__':
                                                                    decay_steps=(X_train_src.shape[0]//batch_size)*200,
                                                                    end_learning_rate=init_lr*1e-2,
                                                                    cycle=True)
-    model      = ResNet50AMCA(num_classes,
-                              num_features,
-                              num_filters=model_filters,
-                              activation=activation_fn,
-                              ca_decay=ca)
+    model      = ResNetAMCA(num_classes,
+                            num_features,
+                            num_filters=model_filters,
+                            activation=activation_fn,
+                            ca_decay=ca)
     optimizer  = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     summary_writer = tf.summary.create_file_writer(summary_writer_path)

@@ -3,7 +3,7 @@ repo_path = os.getenv('MMWAVE_PATH')
 import sys
 sys.path.append(os.path.join(repo_path, 'models'))
 from utils import *
-from resnet_amca import ResNet50AMCA
+from resnet_amca import ResNetAMCA, AM_logits
 import tensorflow as tf
 import numpy as np
 import argparse
@@ -48,12 +48,6 @@ def save_arg(arg):
 def get_cross_entropy_loss(labels, logits):
   loss = tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=logits)
   return tf.reduce_mean(loss)
-
-def AM_logits(labels, logits, m, s):
-  cos_theta = tf.clip_by_value(logits, -1,1)
-  phi = cos_theta - m
-  adjust_theta = s * tf.where(tf.equal(labels,1), phi, cos_theta)
-  return adjust_theta
 
 @tf.function
 def test_step(images):
