@@ -36,7 +36,7 @@ def get_parser():
     parser.add_argument('--ca', type=float, default=1e-3)
     parser.add_argument('--cm_lambda', type=float, default=1e-1)
     parser.add_argument('--log_dir', default="logs/Baselines/AMCA_CM/")
-    parser.add_argument('--notes', default="AMCA_CM_Baseline")
+    parser.add_argument('--notes', default="AMCA_CM-CSim:5_Baseline")
     return parser
 
 def save_arg(arg):
@@ -58,12 +58,14 @@ def test_step(images):
 @tf.function
 def train_step(src_images, src_labels, s, m):
   with tf.GradientTape() as tape:
-    src_logits, _ = model(src_images, training=True)
+    src_logits, src_enc = model(src_images, training=True)
     src_logits    = AM_logits(labels=src_labels, logits=src_logits, m=m, s=s)
     batch_cross_entropy_loss  = get_cross_entropy_loss(labels=src_labels,
                                                        logits=src_logits)
 
-    cm_src_images, cm_src_labels = cutmix(src_images, src_labels, alpha=1)
+    cm_src_images, cm_src_labels = cutmix_sim(src_images, src_labels, src_enc,
+                                              top_k=5,
+                                              alpha=1)
     cm_src_logits, _ = model(cm_src_images, training=True)
     batch_cm_cross_entropy_loss  = get_cross_entropy_loss(labels=cm_src_labels,
                                                           logits=cm_src_logits)
