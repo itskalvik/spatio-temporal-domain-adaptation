@@ -374,6 +374,7 @@ if __name__=='__main__':
       conference_test_acc.reset_states()
       cross_entropy_loss.reset_states()
       cm_cross_entropy_loss.reset_states()
+      orth_loss.reset_states()
 
     if save_freq != 0:
       ckpt_save_path = ckpt_manager.save()
