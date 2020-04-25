@@ -4,6 +4,7 @@ import h5py
 import itertools
 import numpy as np
 import tensorflow as tf
+import tensorflow_addons as tfa
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 
@@ -140,8 +141,8 @@ def mixup(x, y, alpha=1):
 
 
 '''
-CutMix: Regularization Strategy to Train Strong Classifiers with Localizable Features
-https://arxiv.org/abs/1905.04899
+CutMix: Regularization Strategy to Train Strong Classifiers with Localizable
+Features https://arxiv.org/abs/1905.04899
 args:
     x: 4D numpy array, with shape [batch_size, height, width, channels]
     y: 2D numpy array, with shape [batch_size, dim_logits]
@@ -179,7 +180,51 @@ def cutmix(x, y, alpha=1):
     mask = tf.pad(tf.ones([batch_size, y1-y0, x1-x0, channels], dtype=tf.bool),
                   [[0, 0], [y0, image_h-y1], [x0, image_w-x1], [0, 0]])
     indices = tf.random.shuffle(tf.range(batch_size))
-    features = (x * tf.cast(tf.logical_not(mask), x.dtype)) + (tf.gather(x, indices) * tf.cast(mask, x.dtype))
+    features = (x * tf.cast(tf.logical_not(mask), x.dtype)) + \
+                (tf.gather(x, indices) * tf.cast(mask, x.dtype))
+    labels  = (y * lam) + (tf.gather(y, indices) * (1 - lam))
+
+    return tf.stop_gradient(features), tf.stop_gradient(labels)
+
+
+def cutmix_sim(x, y, x_enc, top_k=4, alpha=1):
+    x = tf.cast(x, tf.float32)
+    y = tf.cast(y, tf.float32)
+
+    shape = x.get_shape()
+    batch_size = shape[0]
+    image_h    = shape[1]
+    image_w    = shape[2]
+    channels   = shape[3]
+
+    lam = np.random.beta(alpha, alpha)
+    cx = tf.random.uniform(shape=[],
+                           minval=0,
+                           maxval=image_w,
+                           dtype=tf.float32)
+    cy = tf.random.uniform(shape=[],
+                           minval=0,
+                           maxval=image_h,
+                           dtype=tf.float32)
+    w  = image_w * tf.sqrt(1 - lam)
+    h  = image_h * tf.sqrt(1 - lam)
+
+    x0 = tf.cast(tf.round(tf.maximum(cx - w / 2, 0)), tf.int32)
+    x1 = tf.cast(tf.round(tf.minimum(cx + w / 2, image_w)), tf.int32)
+    y0 = tf.cast(tf.round(tf.maximum(cy - h / 2, 0)), tf.int32)
+    y1 = tf.cast(tf.round(tf.minimum(cy + h / 2, image_h)), tf.int32)
+
+    mask = tf.pad(tf.ones([batch_size, y1-y0, x1-x0, channels], dtype=tf.bool),
+                  [[0, 0], [y0, image_h-y1], [x0, image_w-x1], [0, 0]])
+
+    x_enc = tf.nn.l2_normalize(x_enc, -1)
+    dists = tf.matmul(x_enc, x_enc, transpose_b=True)
+    _, indices = tf.math.top_k(dists,
+                               k=np.random.randint(top_k),
+                               sorted=True)
+    indices = indices[:, -1]
+    features = (x * tf.cast(tf.logical_not(mask), x.dtype)) + \
+                (tf.gather(x, indices) * tf.cast(mask, x.dtype))
     labels  = (y * lam) + (tf.gather(y, indices) * (1 - lam))
 
     return tf.stop_gradient(features), tf.stop_gradient(labels)
@@ -216,7 +261,8 @@ output:
     data: tuple, with (X_data, y_data, classes)
           where X_data and y_data are numpy arrays and classes is a list
 '''
-def balance_dataset(X_data, y_data, num_days=10, num_classes=10, max_samples_per_class=95):
+def balance_dataset(X_data, y_data, num_days=10, num_classes=10,
+                    max_samples_per_class=95):
   X_data_tmp, y_data_tmp = list(), list()
   for day in range(num_days):
     for idx in range(num_classes):
