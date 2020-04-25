@@ -188,13 +188,13 @@ if __name__=='__main__':
       X_test_trg, _    = mean_center(X_test_trg, src_mean)
       X_test_trg, _, _ = normalize(X_test_trg, src_min, src_ptp)
 
-    X_train_src = np.expand_dims(X_train_src.astype(np.float32)[:, :, :128], axis=-1)
+    X_train_src = X_train_src.astype(np.float32)
     y_train_src = y_train_src.astype(np.uint8)
-    X_test_src  = X_test_src.astype(np.float32)[:, :, :128]
+    X_test_src  = X_test_src.astype(np.float32)
     y_test_src  = y_test_src.astype(np.uint8)
-    X_train_trg = X_train_trg.astype(np.float32)[:, :, :128]
+    X_train_trg = X_train_trg.astype(np.float32)
     y_train_trg = y_train_trg.astype(np.uint8)
-    X_test_trg  = X_test_trg.astype(np.float32)[:, :, :128]
+    X_test_trg  = X_test_trg.astype(np.float32)
     y_test_trg  = y_test_trg.astype(np.uint8)
     print("Final shapes: ")
     print(X_train_src.shape, y_train_src.shape,  X_test_src.shape, \
