@@ -24,7 +24,7 @@ def get_parser():
     parser.add_argument('--num_classes', type=int, default=10)
     parser.add_argument('--train_source_days', type=int, default=3)
     parser.add_argument('--train_source_unlabeled_days', type=int, default=0)
-    parser.add_argument('--train_server_days', type=int, default=0)
+    parser.add_argument('--train_server_days', type=int, default=1)
     parser.add_argument('--train_conference_days', type=int, default=0)
     parser.add_argument('--save_freq', type=int, default=25)
     parser.add_argument('--log_images_freq', type=int, default=25)
@@ -69,7 +69,7 @@ def train_step(src_images, src_labels, server_images, server_labels, s, m):
 
     server_logits, _ = model(server_images, training=False)
     cm_server_images, cm_server_labels = cutmix(server_images,
-                                                tf.softmax(server_logits))
+                                                tf.nn.softmax(server_logits))
     cm_server_logits, _ = model(cm_server_images, training=True)
 
     batch_cm_cross_entropy_loss  = get_cross_entropy_loss(labels=cm_src_labels,
