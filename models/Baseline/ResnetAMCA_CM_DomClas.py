@@ -24,7 +24,7 @@ def get_parser():
     parser.add_argument('--num_classes', type=int, default=10)
     parser.add_argument('--train_source_days', type=int, default=3)
     parser.add_argument('--train_source_unlabeled_days', type=int, default=0)
-    parser.add_argument('--train_server_days', type=int, default=1)
+    parser.add_argument('--train_server_days', type=int, default=0)
     parser.add_argument('--train_conference_days', type=int, default=0)
     parser.add_argument('--save_freq', type=int, default=25)
     parser.add_argument('--log_images_freq', type=int, default=25)
@@ -35,9 +35,9 @@ def get_parser():
     parser.add_argument('--m', type=float, default=0.1)
     parser.add_argument('--ca', type=float, default=1e-3)
     parser.add_argument('--cm_lambda', type=float, default=1e-1)
-    parser.add_argument('--orth_lambda', type=float, default=1e-1)
+    parser.add_argument('--dm_lambda', type=float, default=1e-1)
     parser.add_argument('--log_dir', default="logs/Baselines/AMCA_CM/")
-    parser.add_argument('--notes', default="AMCA_Orth_Server_Baseline")
+    parser.add_argument('--notes', default="AMCA_CM_DomClas_Baseline")
     return parser
 
 def save_arg(arg):
@@ -51,18 +51,6 @@ def get_cross_entropy_loss(labels, logits):
   loss = tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=logits)
   return tf.reduce_mean(loss)
 
-def get_orth_loss(encodings, labels):
-    y, idx, count = tf.unique_with_counts(tf.argmax(labels, axis=-1))
-    batch_num_classes = tf.squeeze(tf.shape(y))
-    class_centers = tf.zeros((batch_num_classes, num_features), dtype=tf.float32)
-    class_centers = tf.tensor_scatter_nd_add(class_centers,
-                                             tf.expand_dims(idx, -1),
-                                             encodings)
-    class_centers /= tf.expand_dims(tf.cast(count, tf.float32), -1)
-    batch_orth_loss = tf.matmul(class_centers, class_centers, transpose_b=True)
-    batch_orth_loss = tf.reduce_sum(tf.square(batch_orth_loss-tf.eye(batch_num_classes)))
-    return batch_orth_loss
-
 @tf.function
 def test_step(images):
   logits, _ = model(images, training=False)
@@ -71,14 +59,20 @@ def test_step(images):
 @tf.function
 def train_step(src_images, src_labels, srv_images, srv_labels, s, m):
   with tf.GradientTape() as tape:
-    src_logits, src_enc = model(src_images, training=True)
+    src_logits, src_dom_logits = model(src_images, training=True)
     src_logits    = AM_logits(labels=src_labels, logits=src_logits, m=m, s=s)
     batch_cross_entropy_loss  = get_cross_entropy_loss(labels=src_labels,
                                                        logits=src_logits)
 
-    srv_logits, srv_enc = model(srv_images, training=True)
-    batch_orth_loss = get_orth_loss(src_enc, src_labels) + \
-                      get_orth_loss(srv_enc, tf.nn.softmax(srv_logits))
+    _, srv_dom_logits = model(srv_images, training=True)
+    domain_logits     = AM_logits(labels=tf.one_hot(tf.concat([tf.zeros(batch_size, dtype=tf.uint8),
+                                                               tf.ones(batch_size, dtype=tf.uint8),], 0), 2),
+                                  logits=tf.concat([src_dom_logits,
+                                                    srv_dom_logits], 0),
+                                  m=m, s=s)
+    batch_domain_loss = get_cross_entropy_loss(labels=tf.one_hot(tf.concat([tf.zeros(batch_size, dtype=tf.uint8),
+                                                                            tf.ones(batch_size, dtype=tf.uint8),], 0), 2),
+                                               logits=domain_logits)
 
     cm_src_images, cm_src_labels = cutmix(src_images, src_labels, alpha=1)
     cm_src_logits, _ = model(cm_src_images, training=True)
@@ -87,7 +81,7 @@ def train_step(src_images, src_labels, srv_images, srv_labels, s, m):
 
     total_loss = batch_cross_entropy_loss + \
                  cm_lambda * batch_cm_cross_entropy_loss + \
-                 orth_lambda * batch_orth_loss
+                 dm_lambda * batch_domain_loss
 
   gradients = tape.gradient(total_loss, model.trainable_variables)
   optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -95,8 +89,7 @@ def train_step(src_images, src_labels, srv_images, srv_labels, s, m):
   source_train_acc(src_labels, tf.nn.softmax(src_logits))
   cm_cross_entropy_loss(batch_cm_cross_entropy_loss)
   cross_entropy_loss(batch_cross_entropy_loss)
-  orth_loss(batch_orth_loss)
-
+  domain_loss(batch_domain_loss)
 
 if __name__=='__main__':
     parser = get_parser()
@@ -121,7 +114,7 @@ if __name__=='__main__':
     ca              = arg.ca
     log_images_freq = arg.log_images_freq
     cm_lambda       = arg.cm_lambda
-    orth_lambda     = arg.orth_lambda
+    dm_lambda       = arg.dm_lambda
 
     run_params      = dict(vars(arg))
     del run_params['train_source_unlabeled_days']
@@ -275,7 +268,7 @@ if __name__=='__main__':
     conference_test_acc   = tf.keras.metrics.CategoricalAccuracy(name='conference_test_acc')
     cross_entropy_loss    = tf.keras.metrics.Mean(name='cross_entropy_loss')
     cm_cross_entropy_loss = tf.keras.metrics.Mean(name='cm_cross_entropy_loss')
-    orth_loss             = tf.keras.metrics.Mean(name='orth_loss')
+    domain_loss           = tf.keras.metrics.Mean(name='domain_loss')
 
     learning_rate  = tf.keras.optimizers.schedules.PolynomialDecay(init_lr,
                                                                    decay_steps=(X_train_src.shape[0]//batch_size)*200,
@@ -299,8 +292,7 @@ if __name__=='__main__':
     for epoch in range(epochs):
       m_anneal.assign(tf.minimum(m*(epoch/(epochs/anneal)), m))
       for source_data, server_data in zip(src_train_set, server_train_set):
-        train_step(source_data[0], source_data[1],
-                   server_data[0], server_data[1], s, m_anneal)
+        train_step(source_data[0], source_data[1], server_data[0], server_data[1], s, m_anneal)
 
       pred_labels = []
       for data in time_test_set:
@@ -361,7 +353,7 @@ if __name__=='__main__':
         tf.summary.scalar("conference_test_acc", conference_test_acc.result(), step=epoch)
         tf.summary.scalar("cross_entropy_loss", cross_entropy_loss.result(), step=epoch)
         tf.summary.scalar("cm_cross_entropy_loss", cm_cross_entropy_loss.result(), step=epoch)
-        tf.summary.scalar("orth_loss", orth_loss.result(), step=epoch)
+        tf.summary.scalar("domain_loss", domain_loss.result(), step=epoch)
 
       if (epoch + 1) % save_freq == 0:
         ckpt_save_path = ckpt_manager.save()
@@ -376,7 +368,7 @@ if __name__=='__main__':
       conference_test_acc.reset_states()
       cross_entropy_loss.reset_states()
       cm_cross_entropy_loss.reset_states()
-      orth_loss.reset_states()
+      domain_loss.reset_states()
 
     if save_freq != 0:
       ckpt_save_path = ckpt_manager.save()
