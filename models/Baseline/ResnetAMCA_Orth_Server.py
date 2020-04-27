@@ -24,7 +24,7 @@ def get_parser():
     parser.add_argument('--num_classes', type=int, default=10)
     parser.add_argument('--train_source_days', type=int, default=3)
     parser.add_argument('--train_source_unlabeled_days', type=int, default=0)
-    parser.add_argument('--train_server_days', type=int, default=0)
+    parser.add_argument('--train_server_days', type=int, default=1)
     parser.add_argument('--train_conference_days', type=int, default=0)
     parser.add_argument('--save_freq', type=int, default=25)
     parser.add_argument('--log_images_freq', type=int, default=25)
@@ -54,8 +54,7 @@ def get_cross_entropy_loss(labels, logits):
 def get_orth_loss(encodings, labels):
     y, idx, count = tf.unique_with_counts(tf.argmax(labels, axis=-1))
     batch_num_classes = tf.squeeze(tf.shape(y))
-    class_centers = tf.zeros((batch_num_classes, num_features),
-                             dtype=tf.float32)
+    class_centers = tf.zeros((batch_num_classes, num_features), dtype=tf.float32)
     class_centers = tf.tensor_scatter_nd_add(class_centers,
                                              tf.expand_dims(idx, -1),
                                              encodings)
@@ -70,21 +69,20 @@ def test_step(images):
   return tf.nn.softmax(logits)
 
 @tf.function
-def train_step(src_images, src_labels, server_images, server_labels, s, m):
+def train_step(src_images, src_labels, srv_images, srv_labels, s, m):
   with tf.GradientTape() as tape:
     src_logits, src_enc = model(src_images, training=True)
     src_logits    = AM_logits(labels=src_labels, logits=src_logits, m=m, s=s)
     batch_cross_entropy_loss  = get_cross_entropy_loss(labels=src_labels,
                                                        logits=src_logits)
 
+    _, _ = model(src_images, training=False)
+    batch_orth_loss = get_orth_loss(src_enc, src_labels)
+
     cm_src_images, cm_src_labels = cutmix(src_images, src_labels, alpha=1)
     cm_src_logits, _ = model(cm_src_images, training=True)
     batch_cm_cross_entropy_loss  = get_cross_entropy_loss(labels=cm_src_labels,
                                                           logits=cm_src_logits)
-
-    server_logits, server_enc = model(server_images, training=True)
-    batch_orth_loss = get_orth_loss(server_enc, tf.nn.softmax(server_logits))+\
-                      get_orth_loss(src_enc, src_labels)
 
     total_loss = batch_cross_entropy_loss + \
                  cm_lambda * batch_cm_cross_entropy_loss + \
@@ -97,6 +95,7 @@ def train_step(src_images, src_labels, server_images, server_labels, s, m):
   cm_cross_entropy_loss(batch_cm_cross_entropy_loss)
   cross_entropy_loss(batch_cross_entropy_loss)
   orth_loss(batch_orth_loss)
+
 
 if __name__=='__main__':
     parser = get_parser()
@@ -126,7 +125,6 @@ if __name__=='__main__':
     run_params      = dict(vars(arg))
     del run_params['train_source_unlabeled_days']
     del run_params['train_conference_days']
-    del run_params['train_server_days']
     del run_params['log_images_freq']
     del run_params['log_dir']
     del run_params['checkpoint_path']
@@ -301,8 +299,7 @@ if __name__=='__main__':
       m_anneal.assign(tf.minimum(m*(epoch/(epochs/anneal)), m))
       for source_data, server_data in zip(src_train_set, server_train_set):
         train_step(source_data[0], source_data[1],
-                   server_data[0], server_data[1],
-                   s, m_anneal)
+                   server_data[0], server_data[1], s, m_anneal)
 
       pred_labels = []
       for data in time_test_set:
