@@ -18,7 +18,7 @@ def get_parser():
     parser.add_argument('--epochs', type=int, default=2000)
     parser.add_argument('--init_lr', type=float, default=1e-3)
     parser.add_argument('--num_features', type=int, default=128)
-    parser.add_argument('--model_filters', type=int, default=32)
+    parser.add_argument('--model_filters', type=int, default=64)
     parser.add_argument('--activation_fn', default='selu')
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--num_classes', type=int, default=10)
@@ -110,7 +110,7 @@ if __name__=='__main__':
     checkpoint_path = os.path.join(log_dir, arg.checkpoint_path)
 
     save_arg(arg)
-    shutil.copy2(inspect.getfile(ResNet50AMCA), arg.log_dir)
+    shutil.copy2(inspect.getfile(ResNetAMCA), arg.log_dir)
     shutil.copy2(os.path.abspath(__file__), arg.log_dir)
 
     '''
@@ -253,11 +253,11 @@ if __name__=='__main__':
                                                                    decay_steps=(X_train_src.shape[0]//batch_size)*200,
                                                                    end_learning_rate=init_lr*1e-2,
                                                                    cycle=True)
-    model      = ResNet50AMCA(num_classes,
-                              num_features,
-                              num_filters=model_filters,
-                              activation=activation_fn,
-                              ca_decay=ca)
+    model      = ResNetAMCA(num_classes,
+                            num_features,
+                            num_filters=model_filters,
+                            activation=activation_fn,
+                            ca_decay=ca)
     optimizer  = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     summary_writer = tf.summary.create_file_writer(summary_writer_path)
