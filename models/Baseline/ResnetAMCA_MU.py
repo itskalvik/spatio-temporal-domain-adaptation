@@ -18,7 +18,7 @@ def get_parser():
     parser.add_argument('--epochs', type=int, default=2000)
     parser.add_argument('--init_lr', type=float, default=1e-3)
     parser.add_argument('--num_features', type=int, default=128)
-    parser.add_argument('--model_filters', type=int, default=32)
+    parser.add_argument('--model_filters', type=int, default=64)
     parser.add_argument('--activation_fn', default='selu')
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--num_classes', type=int, default=10)
@@ -34,7 +34,7 @@ def get_parser():
     parser.add_argument('--s', type=int, default=10)
     parser.add_argument('--m', type=float, default=0.1)
     parser.add_argument('--ca', type=float, default=1e-3)
-    parser.add_argument('--mu_lambda', type=float, default=1e-1)
+    parser.add_argument('--mu_lambda', type=float, default=0.7)
     parser.add_argument('--log_dir', default="logs/Baselines/AMCA_MU/")
     parser.add_argument('--notes', default="AMCA_MU_Baseline")
     return parser
