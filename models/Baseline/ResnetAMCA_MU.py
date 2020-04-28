@@ -127,15 +127,12 @@ if __name__=='__main__':
     '''
     Data Preprocessing
     '''
-
+    dataset_path = '/home/kjakkala/mmwave/data/'
     X_data, y_data, classes = get_h5dataset(os.path.join(dataset_path, 'source_data.h5'))
-    print(X_data.shape, y_data.shape, "\n", classes)
-
     X_data, y_data = balance_dataset(X_data, y_data,
                                      num_days=10,
                                      num_classes=len(classes),
                                      max_samples_per_class=95)
-    print(X_data.shape, y_data.shape)
 
     #split days of data to train and test
     X_src = X_data[y_data[:, 1] < train_source_days]
@@ -184,10 +181,6 @@ if __name__=='__main__':
     y_train_trg = y_train_trg.astype(np.uint8)
     X_test_trg  = X_test_trg.astype(np.float32)
     y_test_trg  = y_test_trg.astype(np.uint8)
-    print("Final shapes: ")
-    print(X_train_src.shape, y_train_src.shape,  X_test_src.shape, \
-          y_test_src.shape, X_train_trg.shape, y_train_trg.shape, \
-          X_test_trg.shape, y_test_trg.shape)
 
     X_train_conf,   y_train_conf,   X_test_conf,   y_test_conf   = get_trg_data(os.path.join(dataset_path,
                                                                                              'target_conf_data.h5'),
@@ -200,13 +193,18 @@ if __name__=='__main__':
     _             , _             , X_data_office, y_data_office = get_trg_data(os.path.join(dataset_path,
                                                                                              'target_office_data.h5'),
                                                                                 classes,
-                                                                                0)
+                                                                                0, test_all=True)
 
-    print(X_train_conf.shape, y_train_conf.shape,
-          X_test_conf.shape, y_test_conf.shape, "\n",
-          X_train_server.shape, y_train_server.shape,
-          X_test_server.shape, y_test_server.shape, "\n",
-          X_data_office.shape,  y_data_office.shape)
+    print("Final shapes: ")
+    print(" Train Src:   ", X_train_src.shape, y_train_src.shape, "\n",
+          "Test Src:    ", X_test_src.shape, y_test_src.shape, "\n",
+          "Train Trg:   ", X_train_trg.shape, y_train_trg.shape, "\n",
+          "Test Trg:    ", X_test_trg.shape, y_test_trg.shape)
+    print(" Train Conf:  ", X_train_conf.shape, y_train_conf.shape, "\n",
+          "Test Conf:   ", X_test_conf.shape, y_test_conf.shape, "\n",
+          "Train Server:", X_train_server.shape, y_train_server.shape, "\n",
+          "Test Server: ", X_test_server.shape, y_test_server.shape, "\n",
+          "Test office: ", X_data_office.shape,  y_data_office.shape)
 
     #get tf.data objects for each set
     #Test

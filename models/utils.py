@@ -279,7 +279,7 @@ output:
     X_test_trg: processed testing features
     y_test_trg: processed testing labels
 '''
-def get_trg_data(filename, src_classes, train_trg_days):
+def get_trg_data(filename, src_classes, train_trg_days, test_all=False):
   X_data_trg, y_data_trg, trg_classes = get_h5dataset(filename)
 
   #split days of data to train and test
@@ -287,8 +287,9 @@ def get_trg_data(filename, src_classes, train_trg_days):
   y_train_trg = y_data_trg[y_data_trg[:, 1] < train_trg_days, 0]
   y_train_trg = np.array([src_classes.index(trg_classes[y_train_trg[i]]) for i in range(y_train_trg.shape[0])])
 
-  X_test_trg = X_data_trg[y_data_trg[:, 1] >= train_trg_days]
-  y_test_trg = y_data_trg[y_data_trg[:, 1] >= train_trg_days, 0]
+  test_days = 0 if test_all else 3
+  X_test_trg = X_data_trg[y_data_trg[:, 1] >= test_days]
+  y_test_trg = y_data_trg[y_data_trg[:, 1] >= test_days, 0]
   y_test_trg = np.array([src_classes.index(trg_classes[y_test_trg[i]]) for i in range(y_test_trg.shape[0])])
 
   if(X_train_trg.shape[0] != 0):
