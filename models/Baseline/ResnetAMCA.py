@@ -116,7 +116,6 @@ if __name__=='__main__':
     '''
     Data Preprocessing
     '''
-    dataset_path = '/home/kjakkala/mmwave/data/'
     X_data, y_data, classes = get_h5dataset(os.path.join(dataset_path, 'source_data.h5'))
     X_data, y_data = balance_dataset(X_data, y_data,
                                      num_days=10,
