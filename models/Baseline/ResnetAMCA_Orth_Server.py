@@ -18,13 +18,13 @@ def get_parser():
     parser.add_argument('--epochs', type=int, default=2000)
     parser.add_argument('--init_lr', type=float, default=1e-3)
     parser.add_argument('--num_features', type=int, default=128)
-    parser.add_argument('--model_filters', type=int, default=32)
+    parser.add_argument('--model_filters', type=int, default=64)
     parser.add_argument('--activation_fn', default='selu')
-    parser.add_argument('--batch_size', type=int, default=64)
+    parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--num_classes', type=int, default=10)
     parser.add_argument('--train_source_days', type=int, default=3)
     parser.add_argument('--train_source_unlabeled_days', type=int, default=0)
-    parser.add_argument('--train_server_days', type=int, default=1)
+    parser.add_argument('--train_server_days', type=int, default=3)
     parser.add_argument('--train_conference_days', type=int, default=0)
     parser.add_argument('--save_freq', type=int, default=25)
     parser.add_argument('--log_images_freq', type=int, default=25)
@@ -34,10 +34,10 @@ def get_parser():
     parser.add_argument('--s', type=int, default=10)
     parser.add_argument('--m', type=float, default=0.1)
     parser.add_argument('--ca', type=float, default=1e-3)
-    parser.add_argument('--cm_lambda', type=float, default=1e-1)
+    parser.add_argument('--cm_lambda', type=float, default=0.7)
     parser.add_argument('--orth_lambda', type=float, default=1e-1)
     parser.add_argument('--log_dir', default="logs/Baselines/AMCA_CM/")
-    parser.add_argument('--notes', default="AMCA_Orth_Server_Baseline")
+    parser.add_argument('--notes', default="AMCA_CM_Orth_Server_Baseline")
     return parser
 
 def save_arg(arg):
@@ -52,16 +52,14 @@ def get_cross_entropy_loss(labels, logits):
   return tf.reduce_mean(loss)
 
 def get_orth_loss(encodings, labels):
-    y, idx, count = tf.unique_with_counts(tf.argmax(labels, axis=-1))
-    batch_num_classes = tf.squeeze(tf.shape(y))
-    class_centers = tf.zeros((batch_num_classes, num_features), dtype=tf.float32)
-    class_centers = tf.tensor_scatter_nd_add(class_centers,
-                                             tf.expand_dims(idx, -1),
-                                             encodings)
-    class_centers /= tf.expand_dims(tf.cast(count, tf.float32), -1)
-    batch_orth_loss = tf.matmul(class_centers, class_centers, transpose_b=True)
-    batch_orth_loss = tf.reduce_sum(tf.square(batch_orth_loss-tf.eye(batch_num_classes)))
-    return batch_orth_loss
+    normed_labels = labels/(tf.reduce_sum(labels, axis=0)+1e-6)
+    label_mask = tf.greater(tf.reduce_sum(normed_labels, axis=0), 0)
+    label_mask = tf.boolean_mask(normed_labels, label_mask, axis=1)
+    class_embeddings = tf.matmul(encodings, label_mask, transpose_a=True)
+    orth_loss = tf.matmul(class_embeddings, class_embeddings, transpose_a=True)
+    unique_classes = tf.shape(orth_loss)[0]
+    orth_loss = tf.reduce_sum(tf.square(orth_loss-tf.eye(unique_classes)))
+    return orth_loss
 
 @tf.function
 def test_step(images):
@@ -77,13 +75,18 @@ def train_step(src_images, src_labels, srv_images, srv_labels, s, m):
                                                        logits=src_logits)
 
     srv_logits, srv_enc = model(srv_images, training=True)
-    batch_orth_loss = get_orth_loss(src_enc, src_labels) + \
-                      get_orth_loss(srv_enc, tf.nn.softmax(srv_logits))
+    batch_orth_loss = get_orth_loss(tf.concat([src_enc, srv_enc], axis=0),
+                                    tf.concat([tf.cast(src_labels, tf.float32),
+                                               tf.nn.softmax(srv_logits)],
+                                               axis=0))
 
-    cm_src_images, cm_src_labels = cutmix(src_images, src_labels, alpha=1)
-    cm_src_logits, _ = model(cm_src_images, training=True)
-    batch_cm_cross_entropy_loss  = get_cross_entropy_loss(labels=cm_src_labels,
-                                                          logits=cm_src_logits)
+    cm_images, cm_labels = cutmix(tf.concat([src_images, srv_images], axis=0),
+                                  tf.concat([tf.cast(src_labels, tf.float32),
+                                             tf.nn.softmax(srv_logits)],
+                                            axis=0))
+    cm_logits, _ = model(cm_images, training=True)
+    batch_cm_cross_entropy_loss  = get_cross_entropy_loss(labels=cm_labels,
+                                                          logits=cm_logits)
 
     total_loss = batch_cross_entropy_loss + \
                  cm_lambda * batch_cm_cross_entropy_loss + \
