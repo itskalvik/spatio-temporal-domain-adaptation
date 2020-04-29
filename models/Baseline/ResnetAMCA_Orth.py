@@ -11,7 +11,7 @@ import inspect
 import shutil
 import yaml
 import h5py
-from sklearn.metrics import} confusion_matrix
+from sklearn.metrics import confusion_matrix
 
 def get_parser():
     parser = argparse.ArgumentParser(description='')
