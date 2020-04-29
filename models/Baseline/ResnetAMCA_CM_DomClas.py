@@ -3,7 +3,7 @@ repo_path = os.getenv('MMWAVE_PATH')
 import sys
 sys.path.append(os.path.join(repo_path, 'models'))
 from utils import *
-from resnet_amca import ResNetAMCA, AM_logits
+from resnet_amca_dom import ResNetAMCA, AM_logits
 import tensorflow as tf
 import numpy as np
 import argparse
@@ -18,13 +18,13 @@ def get_parser():
     parser.add_argument('--epochs', type=int, default=2000)
     parser.add_argument('--init_lr', type=float, default=1e-3)
     parser.add_argument('--num_features', type=int, default=128)
-    parser.add_argument('--model_filters', type=int, default=32)
+    parser.add_argument('--model_filters', type=int, default=64)
     parser.add_argument('--activation_fn', default='selu')
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--num_classes', type=int, default=10)
     parser.add_argument('--train_source_days', type=int, default=3)
     parser.add_argument('--train_source_unlabeled_days', type=int, default=0)
-    parser.add_argument('--train_server_days', type=int, default=0)
+    parser.add_argument('--train_server_days', type=int, default=3)
     parser.add_argument('--train_conference_days', type=int, default=0)
     parser.add_argument('--save_freq', type=int, default=25)
     parser.add_argument('--log_images_freq', type=int, default=25)
@@ -34,7 +34,7 @@ def get_parser():
     parser.add_argument('--s', type=int, default=10)
     parser.add_argument('--m', type=float, default=0.1)
     parser.add_argument('--ca', type=float, default=1e-3)
-    parser.add_argument('--cm_lambda', type=float, default=1e-1)
+    parser.add_argument('--cm_lambda', type=float, default=0.7)
     parser.add_argument('--dm_lambda', type=float, default=1e-1)
     parser.add_argument('--log_dir', default="logs/Baselines/AMCA_CM/")
     parser.add_argument('--notes', default="AMCA_CM_DomClas_Baseline")
@@ -64,20 +64,26 @@ def train_step(src_images, src_labels, srv_images, srv_labels, s, m):
     batch_cross_entropy_loss  = get_cross_entropy_loss(labels=src_labels,
                                                        logits=src_logits)
 
-    _, srv_dom_logits = model(srv_images, training=True)
+    srv_logits, srv_dom_logits = model(srv_images, training=True)
     domain_logits     = AM_logits(labels=tf.one_hot(tf.concat([tf.zeros(batch_size, dtype=tf.uint8),
                                                                tf.ones(batch_size, dtype=tf.uint8),], 0), 2),
                                   logits=tf.concat([src_dom_logits,
                                                     srv_dom_logits], 0),
                                   m=m, s=s)
-    batch_domain_loss = get_cross_entropy_loss(labels=tf.one_hot(tf.concat([tf.zeros(batch_size, dtype=tf.uint8),
-                                                                            tf.ones(batch_size, dtype=tf.uint8),], 0), 2),
+    domain_labels = tf.one_hot(tf.concat([tf.zeros(batch_size, dtype=tf.uint8),
+                                          tf.ones(batch_size, dtype=tf.uint8)],
+                                         0),
+                               2)
+    batch_domain_loss = get_cross_entropy_loss(labels=domain_labels,
                                                logits=domain_logits)
 
-    cm_src_images, cm_src_labels = cutmix(src_images, src_labels, alpha=1)
-    cm_src_logits, _ = model(cm_src_images, training=True)
-    batch_cm_cross_entropy_loss  = get_cross_entropy_loss(labels=cm_src_labels,
-                                                          logits=cm_src_logits)
+    cm_images, cm_labels = cutmix(tf.concat([src_images, srv_images], axis=0),
+                                  tf.concat([tf.cast(src_labels, tf.float32),
+                                             tf.nn.softmax(srv_logits)],
+                                            axis=0))
+    cm_logits, _ = model(cm_images, training=True)
+    batch_cm_cross_entropy_loss  = get_cross_entropy_loss(labels=cm_labels,
+                                                          logits=cm_logits)
 
     total_loss = batch_cross_entropy_loss + \
                  cm_lambda * batch_cm_cross_entropy_loss + \
