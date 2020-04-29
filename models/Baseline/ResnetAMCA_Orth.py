@@ -11,14 +11,14 @@ import inspect
 import shutil
 import yaml
 import h5py
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import} confusion_matrix
 
 def get_parser():
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('--epochs', type=int, default=2000)
     parser.add_argument('--init_lr', type=float, default=1e-3)
     parser.add_argument('--num_features', type=int, default=128)
-    parser.add_argument('--model_filters', type=int, default=32)
+    parser.add_argument('--model_filters', type=int, default=64)
     parser.add_argument('--activation_fn', default='selu')
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--num_classes', type=int, default=10)
@@ -34,7 +34,7 @@ def get_parser():
     parser.add_argument('--s', type=int, default=10)
     parser.add_argument('--m', type=float, default=0.1)
     parser.add_argument('--ca', type=float, default=1e-3)
-    parser.add_argument('--cm_lambda', type=float, default=1e-1)
+    parser.add_argument('--cm_lambda', type=float, default=0.7)
     parser.add_argument('--orth_lambda', type=float, default=1e-1)
     parser.add_argument('--log_dir', default="logs/Baselines/AMCA_CM/")
     parser.add_argument('--notes', default="AMCA_Orth_Baseline")
@@ -51,6 +51,17 @@ def get_cross_entropy_loss(labels, logits):
   loss = tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=logits)
   return tf.reduce_mean(loss)
 
+def get_orth_loss(encodings, labels):
+    labels = tf.cast(labels, tf.float32)
+    normed_labels = labels/(tf.reduce_sum(labels, axis=0)+1e-6)
+    label_mask = tf.greater(tf.reduce_sum(normed_labels, axis=0), 0)
+    label_mask = tf.boolean_mask(normed_labels, label_mask, axis=1)
+    class_embeddings = tf.matmul(encodings, label_mask, transpose_a=True)
+    orth_loss = tf.matmul(class_embeddings, class_embeddings, transpose_a=True)
+    unique_classes = tf.shape(orth_loss)[0]
+    orth_loss = tf.reduce_sum(tf.square(orth_loss-tf.eye(unique_classes)))
+    return orth_loss
+
 @tf.function
 def test_step(images):
   logits, _ = model(images, training=False)
@@ -64,18 +75,12 @@ def train_step(src_images, src_labels, s, m):
     batch_cross_entropy_loss  = get_cross_entropy_loss(labels=src_labels,
                                                        logits=src_logits)
 
-    y, idx, count = tf.unique_with_counts(tf.argmax(src_labels, axis=-1))
-    batch_num_classes = tf.squeeze(tf.shape(y))
-    class_centers = tf.zeros((batch_num_classes, num_features), dtype=tf.float32)
-    class_centers = tf.tensor_scatter_nd_add(class_centers, tf.expand_dims(idx, -1), src_enc)
-    class_centers /= tf.expand_dims(tf.cast(count, tf.float32), -1)
-    batch_orth_loss = tf.matmul(class_centers, class_centers, transpose_b=True)
-    batch_orth_loss = tf.reduce_sum(tf.square(batch_orth_loss-tf.eye(batch_num_classes)))
-
     cm_src_images, cm_src_labels = cutmix(src_images, src_labels, alpha=1)
     cm_src_logits, _ = model(cm_src_images, training=True)
     batch_cm_cross_entropy_loss  = get_cross_entropy_loss(labels=cm_src_labels,
                                                           logits=cm_src_logits)
+
+    batch_orth_loss = get_orth_loss(src_enc, src_labels)
 
     total_loss = batch_cross_entropy_loss + \
                  cm_lambda * batch_cm_cross_entropy_loss + \
@@ -139,11 +144,15 @@ if __name__=='__main__':
     '''
     Data Preprocessing
     '''
+
     X_data, y_data, classes = get_h5dataset(os.path.join(dataset_path, 'source_data.h5'))
+    print(X_data.shape, y_data.shape, "\n", classes)
+
     X_data, y_data = balance_dataset(X_data, y_data,
                                      num_days=10,
                                      num_classes=len(classes),
                                      max_samples_per_class=95)
+    print(X_data.shape, y_data.shape)
 
     #split days of data to train and test
     X_src = X_data[y_data[:, 1] < train_source_days]
@@ -192,6 +201,10 @@ if __name__=='__main__':
     y_train_trg = y_train_trg.astype(np.uint8)
     X_test_trg  = X_test_trg.astype(np.float32)
     y_test_trg  = y_test_trg.astype(np.uint8)
+    print("Final shapes: ")
+    print(X_train_src.shape, y_train_src.shape,  X_test_src.shape, \
+          y_test_src.shape, X_train_trg.shape, y_train_trg.shape, \
+          X_test_trg.shape, y_test_trg.shape)
 
     X_train_conf,   y_train_conf,   X_test_conf,   y_test_conf   = get_trg_data(os.path.join(dataset_path,
                                                                                              'target_conf_data.h5'),
@@ -204,18 +217,13 @@ if __name__=='__main__':
     _             , _             , X_data_office, y_data_office = get_trg_data(os.path.join(dataset_path,
                                                                                              'target_office_data.h5'),
                                                                                 classes,
-                                                                                0, test_all=True)
+                                                                                0)
 
-    print("Final shapes: ")
-    print(" Train Src:   ", X_train_src.shape, y_train_src.shape, "\n",
-          "Test Src:    ", X_test_src.shape, y_test_src.shape, "\n",
-          "Train Trg:   ", X_train_trg.shape, y_train_trg.shape, "\n",
-          "Test Trg:    ", X_test_trg.shape, y_test_trg.shape)
-    print(" Train Conf:  ", X_train_conf.shape, y_train_conf.shape, "\n",
-          "Test Conf:   ", X_test_conf.shape, y_test_conf.shape, "\n",
-          "Train Server:", X_train_server.shape, y_train_server.shape, "\n",
-          "Test Server: ", X_test_server.shape, y_test_server.shape, "\n",
-          "Test office: ", X_data_office.shape,  y_data_office.shape)
+    print(X_train_conf.shape, y_train_conf.shape,
+          X_test_conf.shape, y_test_conf.shape, "\n",
+          X_train_server.shape, y_train_server.shape,
+          X_test_server.shape, y_test_server.shape, "\n",
+          X_data_office.shape,  y_data_office.shape)
 
     #get tf.data objects for each set
     #Test
