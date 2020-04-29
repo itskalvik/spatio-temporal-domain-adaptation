@@ -20,7 +20,7 @@ def get_parser():
     parser.add_argument('--num_features', type=int, default=128)
     parser.add_argument('--model_filters', type=int, default=64)
     parser.add_argument('--activation_fn', default='selu')
-    parser.add_argument('--batch_size', type=int, default=64)
+    parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--num_classes', type=int, default=10)
     parser.add_argument('--train_source_days', type=int, default=3)
     parser.add_argument('--train_source_unlabeled_days', type=int, default=0)

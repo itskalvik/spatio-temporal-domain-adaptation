@@ -319,6 +319,18 @@ class ResNetAMCA(tf.keras.Model):
                           kernel_regularizer=ConstrictiveRegularizer(ca_decay),
                           name='logits')
 
+    self.fc2 = tf.keras.layers.Dense(num_features,
+                                     activation=self.activation,
+                                     kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.01),
+                                     kernel_regularizer=tf.keras.regularizers.l2(L2_WEIGHT_DECAY),
+                                     bias_regularizer=tf.keras.regularizers.l2(L2_WEIGHT_DECAY),
+                                     activity_regularizer=ConstrictiveRegularizer(ca_decay),
+                                     name='fc2')
+    self.dom_logits = AMDense(2,
+                              kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.01),
+                              kernel_regularizer=ConstrictiveRegularizer(ca_decay),
+                              name='dom_logits')
+
   def call(self, x, training=False):
     x = self.conv1(x)
     x = self.bn1(x, training=training)
@@ -329,10 +341,13 @@ class ResNetAMCA(tf.keras.Model):
       x = block(x, training=training)
 
     x = self.avg_pool(x)
+
     fc1 = self.fc1(x)
     logits = self.logits(fc1)
 
-    return logits, x
+    fc2 = self.fc2(x)
+    dom_logits = self.dom_logits(fc2)
+    return logits, dom_logits
 
 
 def AM_logits(labels, logits, m, s):
