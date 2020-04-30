@@ -4,6 +4,32 @@ L2_WEIGHT_DECAY = 1e-4
 BATCH_NORM_DECAY = 0.9
 BATCH_NORM_EPSILON = 1e-5
 
+
+"""GradientReversal: helper function
+"""
+@tf.custom_gradient
+def reverse_gradient(x, hp_lambda):
+    def custom_grad(dy):
+        return tf.math.multiply(tf.negative(dy), hp_lambda)
+    return x, custom_grad
+
+
+"""GradientReversal: reverses tha scales the gradient
+call Args:
+    inputs: tensor, output of preceding layer
+    lambda_hp: double, specifying scaling factor of gradient
+
+Returns:
+    A Keras layer instance.
+"""
+class GradientReversal(tf.keras.layers.Layer):
+  def __init__(self):
+    super(GradientReversal, self).__init__()
+
+  def call(self, inputs, lambda_hp):
+    return reverse_gradient(inputs, lambda_hp)
+
+
 """Regularizer for constrictive regularization.
 """
 class ConstrictiveRegularizer(tf.keras.regularizers.Regularizer):
@@ -138,7 +164,8 @@ Returns:
   A Keras model instance for the block.
 """
 class ConvBlock(tf.keras.Model):
-  def __init__(self, kernel_size, filters, stage, block, strides=(2, 2), activation='relu', regularizer='batchnorm', dropout_rate=0):
+  def __init__(self, kernel_size, filters, stage, block, strides=(2, 2),
+               activation='relu', regularizer='batchnorm', dropout_rate=0):
     self.activation = activation
 
     conv_name_base = 'res' + str(stage) + block + '_branch'
@@ -224,7 +251,8 @@ Returns:
 """
 class ResNetAMCA(tf.keras.Model):
   def __init__(self, num_classes, num_features, num_filters=64, activation='relu',
-               regularizer='batchnorm', dropout_rate=0, ca_decay=1e-3):
+               regularizer='batchnorm', dropout_rate=0, ca_decay=1e-3,
+               rev_grad=False):
     super().__init__(name='generator')
     bn_axis = -1
     self.activation = activation
@@ -331,7 +359,12 @@ class ResNetAMCA(tf.keras.Model):
                               kernel_regularizer=ConstrictiveRegularizer(ca_decay),
                               name='dom_logits')
 
-  def call(self, x, training=False):
+    if rev_grad:
+        self.rev_grad = GradientReversal()
+    else:
+        self.rev_grad = None
+
+  def call(self, x, training=False, hp_lambda=0):
     x = self.conv1(x)
     x = self.bn1(x, training=training)
     x = self.act1(x)
@@ -344,6 +377,9 @@ class ResNetAMCA(tf.keras.Model):
 
     fc1 = self.fc1(x)
     logits = self.logits(fc1)
+
+    if self.rev_grad is not None:
+        x = self.rev_grad(x, hp_lambda)
 
     fc2 = self.fc2(x)
     dom_logits = self.dom_logits(fc2)
