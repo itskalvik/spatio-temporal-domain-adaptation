@@ -5,31 +5,6 @@ BATCH_NORM_DECAY = 0.9
 BATCH_NORM_EPSILON = 1e-5
 
 
-"""GradientReversal: helper function
-"""
-@tf.custom_gradient
-def reverse_gradient(x, hp_lambda):
-    def custom_grad(dy):
-        return tf.math.multiply(tf.negative(dy), hp_lambda)
-    return x, custom_grad
-
-
-"""GradientReversal: reverses tha scales the gradient
-call Args:
-    inputs: tensor, output of preceding layer
-    lambda_hp: double, specifying scaling factor of gradient
-
-Returns:
-    A Keras layer instance.
-"""
-class GradientReversal(tf.keras.layers.Layer):
-  def __init__(self):
-    super(GradientReversal, self).__init__()
-
-  def call(self, inputs, lambda_hp):
-    return reverse_gradient(inputs, lambda_hp)
-
-
 """Regularizer for constrictive regularization.
 """
 class ConstrictiveRegularizer(tf.keras.regularizers.Regularizer):
@@ -385,6 +360,18 @@ class ResNetAMCA(tf.keras.Model):
     dom_logits = self.dom_logits(fc2)
     return logits, dom_logits
 
+@tf.custom_gradient
+def reverse_gradient(x, hp_lambda):
+    def custom_grad(dy):
+        return tf.math.multiply(tf.negative(dy), hp_lambda), None
+    return x, custom_grad
+
+class GradientReversal(tf.keras.layers.Layer):
+  def __init__(self):
+    super(GradientReversal, self).__init__()
+
+  def call(self, inputs, lambda_hp):
+    return reverse_gradient(inputs, lambda_hp)
 
 def AM_logits(labels, logits, m, s):
   labels = tf.cast(labels, dtype=tf.float32)

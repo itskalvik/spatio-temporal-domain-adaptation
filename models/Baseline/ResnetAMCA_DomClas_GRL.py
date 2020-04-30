@@ -20,7 +20,7 @@ def get_parser():
     parser.add_argument('--num_features', type=int, default=128)
     parser.add_argument('--model_filters', type=int, default=64)
     parser.add_argument('--activation_fn', default='selu')
-    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--num_classes', type=int, default=10)
     parser.add_argument('--train_source_days', type=int, default=3)
     parser.add_argument('--train_source_unlabeled_days', type=int, default=0)
@@ -283,7 +283,7 @@ if __name__=='__main__':
     hp_lambda_anneal = tf.Variable(0, dtype="float32")
     for epoch in range(epochs):
       m_anneal.assign(tf.minimum(m*(epoch/(epochs/anneal)), m))
-      hp_lambda_anneal.assign(tf.minimum(epoch/(epochs/anneal)))
+      hp_lambda_anneal.assign(tf.minimum(epoch/(epochs/anneal), 1.0))
       for source_data, server_data in zip(src_train_set, server_train_set):
         train_step(source_data[0], source_data[1], server_data[0], server_data[1], s, m_anneal, hp_lambda_anneal)
 
