@@ -79,13 +79,13 @@ def train_step(src_images, src_labels, srv_images, srv_labels, s, m, hp_lambda=0
 
     cm_images, cm_labels = cutmix(src_images, src_labels)
     cm_logits, _ = model(cm_images, training=True)
-    batch_cm_cross_entropy_loss  = get_cross_entropy_loss(labels=cm_labels,
-                                                          logits=cm_logits)
+    batch_cm_loss  = get_cross_entropy_loss(labels=cm_labels,
+                                            logits=cm_logits)
 
     cm_images, cm_labels = cutmix(srv_images, tf.nn.softmax(srv_logits))
     cm_logits, _ = model(cm_images, training=True)
-    batch_cm_cross_entropy_loss += get_cross_entropy_loss(labels=cm_labels,
-                                                          logits=cm_logits)
+    batch_cm_loss += get_cross_entropy_loss(labels=cm_labels,
+                                            logits=cm_logits)
 
     total_loss = batch_cross_entropy_loss + \
                  dm_lambda * batch_domain_loss + \
@@ -128,6 +128,7 @@ if __name__=='__main__':
     del run_params['train_source_unlabeled_days']
     del run_params['train_conference_days']
     del run_params['log_images_freq']
+    del run_params['num_classes']
     del run_params['log_dir']
     del run_params['checkpoint_path']
     del run_params['summary_writer_path']
