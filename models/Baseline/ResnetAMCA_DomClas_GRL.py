@@ -15,7 +15,7 @@ from sklearn.metrics import confusion_matrix
 
 def get_parser():
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--epochs', type=int, default=2000)
+    parser.add_argument('--epochs', type=int, default=1000)
     parser.add_argument('--init_lr', type=float, default=1e-3)
     parser.add_argument('--num_features', type=int, default=128)
     parser.add_argument('--model_filters', type=int, default=64)
@@ -34,7 +34,7 @@ def get_parser():
     parser.add_argument('--s', type=int, default=10)
     parser.add_argument('--m', type=float, default=0.1)
     parser.add_argument('--ca', type=float, default=1e-3)
-    parser.add_argument('--dm_lambda', type=float, default=1e-1)
+    parser.add_argument('--dm_lambda', type=float, default=1e-4)
     parser.add_argument('--log_dir', default="logs/Baselines/AMCA_DomClas/")
     parser.add_argument('--notes', default="AMCA_DomClas_GRL_Baseline")
     return parser
