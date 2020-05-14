@@ -99,8 +99,6 @@ if __name__ == '__main__':
     log_images_freq = arg.log_images_freq
 
     run_params = dict(vars(arg))
-    del run_params['train_server_days']
-    del run_params['train_conference_days']
     del run_params['train_source_unlabeled_days']
     del run_params['log_images_freq']
     del run_params['log_dir']
@@ -181,13 +179,13 @@ if __name__ == '__main__':
     X_test_trg = X_test_trg.astype(np.float32)
     y_test_trg = y_test_trg.astype(np.uint8)
 
-    X_train_conf, y_train_conf, X_test_conf, y_test_conf = get_trg_data(
+    X_train_conf, y_train_conf, _, X_test_conf, y_test_conf, _ = get_trg_data(
         os.path.join(dataset_path, 'target_conf_data.h5'), classes,
         train_conference_days)
-    X_train_server, y_train_server, X_test_server, y_test_server = get_trg_data(
+    X_train_server, y_train_server, _, X_test_server, y_test_server, _ = get_trg_data(
         os.path.join(dataset_path, 'target_server_data.h5'), classes,
         train_server_days)
-    _, _, X_data_office, y_data_office = get_trg_data(os.path.join(
+    _, _, _, X_data_office, y_data_office, _ = get_trg_data(os.path.join(
         dataset_path, 'target_office_data.h5'),
                                                       classes,
                                                       0,
@@ -230,26 +228,20 @@ if __name__ == '__main__':
     time_test_set = time_test_set.prefetch(batch_size)
 
     #Train
+    if train_conference_days > 0:
+        X_train_src = np.concatenate([X_train_src, X_train_conf], axis=0)
+        y_train_src = np.concatenate([y_train_src, y_train_conf], axis=0)
+
+    if train_server_days > 0:
+        X_train_src = np.concatenate([X_train_src, X_train_server], axis=0)
+        y_train_src = np.concatenate([y_train_src, y_train_server], axis=0)
+
     src_train_set = tf.data.Dataset.from_tensor_slices(
         (X_train_src, y_train_src))
     src_train_set = src_train_set.shuffle(X_train_src.shape[0])
     src_train_set = src_train_set.batch(batch_size, drop_remainder=True)
     src_train_set = src_train_set.prefetch(batch_size)
 
-    if train_conference_days > 0:
-        conf_train_set = tf.data.Dataset.from_tensor_slices(
-            (X_train_conf, y_train_conf))
-        conf_train_set = conf_train_set.shuffle(X_train_conf.shape[0])
-        conf_train_set = conf_train_set.batch(batch_size, drop_remainder=True)
-        conf_train_set = conf_train_set.prefetch(batch_size)
-
-    if train_server_days > 0:
-        server_train_set = tf.data.Dataset.from_tensor_slices(
-            (X_train_server, y_train_server))
-        server_train_set = server_train_set.shuffle(X_train_server.shape[0])
-        server_train_set = server_train_set.batch(batch_size,
-                                                  drop_remainder=True)
-        server_train_set = server_train_set.prefetch(batch_size)
     '''
     Tensorflow Model
     '''
