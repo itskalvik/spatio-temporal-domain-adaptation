@@ -274,7 +274,7 @@ class ResNetAMCA(tf.keras.Model):
                  regularizer='batchnorm',
                  dropout_rate=0,
                  ca_decay=1e-3,
-                 rev_grad=False):
+                 num_domains=2):
         super().__init__(name='generator')
         bn_axis = -1
         self.activation = activation
@@ -391,15 +391,11 @@ class ResNetAMCA(tf.keras.Model):
             activity_regularizer=ConstrictiveRegularizer(ca_decay),
             name='fc2')
         self.dom_logits = AMDense(
-            2,
+            num_domains,
             kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.01),
             kernel_regularizer=ConstrictiveRegularizer(ca_decay),
             name='dom_logits')
-
-        if rev_grad:
-            self.rev_grad = GradientReversal()
-        else:
-            self.rev_grad = None
+        self.rev_grad = GradientReversal()
 
     def call(self, x, training=False, hp_lambda=0):
         x = self.conv1(x)
@@ -415,9 +411,7 @@ class ResNetAMCA(tf.keras.Model):
         fc1 = self.fc1(x)
         logits = self.logits(fc1)
 
-        if self.rev_grad is not None:
-            x = self.rev_grad(x, hp_lambda)
-
+        x = self.rev_grad(x, hp_lambda)
         fc2 = self.fc2(x)
         dom_logits = self.dom_logits(fc2)
         return logits, dom_logits

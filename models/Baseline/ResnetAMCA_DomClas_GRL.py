@@ -23,10 +23,10 @@ def get_parser():
     parser.add_argument('--activation_fn', default='selu')
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--num_classes', type=int, default=10)
-    parser.add_argument('--train_source_days', type=int, default=3)
-    parser.add_argument('--train_source_unlabeled_days', type=int, default=0)
-    parser.add_argument('--train_server_days', type=int, default=3)
-    parser.add_argument('--train_conference_days', type=int, default=0)
+    parser.add_argument('--train_src_days', type=int, default=3)
+    parser.add_argument('--train_trg_days', type=int, default=0)
+    parser.add_argument('--train_ser_days', type=int, default=3)
+    parser.add_argument('--train_con_days', type=int, default=0)
     parser.add_argument('--save_freq', type=int, default=25)
     parser.add_argument('--log_images_freq', type=int, default=25)
     parser.add_argument('--checkpoint_path', default="checkpoints")
@@ -37,7 +37,7 @@ def get_parser():
     parser.add_argument('--ca', type=float, default=1e-3)
     parser.add_argument('--dm_lambda', type=float, default=1e-4)
     parser.add_argument('--log_dir', default="logs/Baselines/AMCA_DomClas/")
-    parser.add_argument('--notes', default="AMCA_DomClas_GRL_Baseline")
+    parser.add_argument('--notes', default="AMCA_STDomClas_GRL_Baseline")
     return parser
 
 
@@ -63,8 +63,12 @@ def test_step(images):
 @tf.function
 def train_step(src_images,
                src_labels,
+               trg_images,
+               trg_labels,
                srv_images,
                srv_labels,
+               con_images,
+               con_labels,
                s,
                m,
                hp_lambda=0):
@@ -72,27 +76,32 @@ def train_step(src_images,
         src_logits, src_dom_logits = model(src_images,
                                            training=True,
                                            hp_lambda=hp_lambda)
-        src_logits = AM_logits(labels=src_labels, logits=src_logits, m=m, s=s)
-        batch_cross_entropy_loss = get_cross_entropy_loss(labels=src_labels,
-                                                          logits=src_logits)
-
+        trg_logits, trg_dom_logits = model(trg_images,
+                                           training=True,
+                                           hp_lambda=hp_lambda)
         srv_logits, srv_dom_logits = model(srv_images,
                                            training=True,
                                            hp_lambda=hp_lambda)
-        domain_logits = AM_logits(labels=tf.one_hot(
-            tf.concat([
-                tf.zeros(batch_size, dtype=tf.uint8),
-                tf.ones(batch_size, dtype=tf.uint8),
-            ], 0), 2),
-                                  logits=tf.concat(
-                                      [src_dom_logits, srv_dom_logits], 0),
-                                  m=m,
-                                  s=s)
-        domain_labels = tf.one_hot(
-            tf.concat([
-                tf.zeros(batch_size, dtype=tf.uint8),
-                tf.ones(batch_size, dtype=tf.uint8)
-            ], 0), 2)
+        con_logits, con_dom_logits = model(con_images,
+                                           training=True,
+                                           hp_lambda=hp_lambda)
+
+        src_logits = AM_logits(labels=src_labels,
+                               logits=src_logits, m=m, s=s)
+        batch_cross_entropy_loss = get_cross_entropy_loss(labels=src_labels,
+                                                          logits=src_logits)
+
+        domain_logits = tf.concat([tf.one_hot(tf.zeros(batch_size, dtype=tf.uint8), 4),
+                                   tf.one_hot(tf.ones(batch_size, dtype=tf.uint8), 4),
+                                   tf.one_hot(tf.ones(batch_size, dtype=tf.uint8)*2, 4),
+                                   tf.one_hot(tf.ones(batch_size, dtype=tf.uint8)*3, 4)],
+                                   axis=0)
+        domain_labels = tf.concat([src_dom_logits,
+                                   trg_dom_logits,
+                                   srv_dom_logits,
+                                   con_dom_logits], axis=0)
+        domain_logits = AM_logits(labels=domain_labels,
+                                  logits=domain_logits, m=m, s=s)
         batch_domain_loss = get_cross_entropy_loss(labels=domain_labels,
                                                    logits=domain_logits)
 
@@ -114,10 +123,10 @@ if __name__ == '__main__':
     dataset_path = os.path.join(repo_path, 'data')
     num_classes = arg.num_classes
     batch_size = arg.batch_size
-    train_source_days = arg.train_source_days
-    train_server_days = arg.train_server_days
-    train_conference_days = arg.train_conference_days
-    train_source_unlabeled_days = arg.train_source_unlabeled_days
+    train_source_days = arg.train_src_days
+    train_server_days = arg.train_ser_days
+    train_conference_days = arg.train_con_days
+    train_source_unlabeled_days = arg.train_trg_days
     save_freq = arg.save_freq
     epochs = arg.epochs
     init_lr = arg.init_lr
@@ -132,8 +141,6 @@ if __name__ == '__main__':
     dm_lambda = arg.dm_lambda
 
     run_params = dict(vars(arg))
-    del run_params['train_source_unlabeled_days']
-    del run_params['train_conference_days']
     del run_params['log_images_freq']
     del run_params['log_dir']
     del run_params['checkpoint_path']
@@ -268,33 +275,37 @@ if __name__ == '__main__':
     src_train_set = src_train_set.batch(batch_size, drop_remainder=True)
     src_train_set = src_train_set.prefetch(batch_size)
 
-    server_train_set = tf.data.Dataset.from_tensor_slices(
+    trg_train_set = tf.data.Dataset.from_tensor_slices(
+        (X_train_trg, y_train_trg))
+    trg_train_set = trg_train_set.shuffle(X_train_trg.shape[0])
+    trg_train_set = trg_train_set.batch(batch_size, drop_remainder=True)
+    trg_train_set = trg_train_set.prefetch(batch_size)
+
+    ser_train_set = tf.data.Dataset.from_tensor_slices(
         (X_train_server, y_train_server))
-    server_train_set = server_train_set.shuffle(X_train_server.shape[0])
-    server_train_set = server_train_set.batch(batch_size, drop_remainder=True)
-    server_train_set = server_train_set.prefetch(batch_size)
+    ser_train_set = ser_train_set.shuffle(X_train_server.shape[0])
+    ser_train_set = ser_train_set.batch(batch_size, drop_remainder=True)
+    ser_train_set = ser_train_set.prefetch(batch_size)
+
+    con_train_set = tf.data.Dataset.from_tensor_slices(
+        (X_train_conf, y_train_conf))
+    con_train_set = con_train_set.shuffle(X_train_conf.shape[0])
+    con_train_set = con_train_set.batch(batch_size, drop_remainder=True)
+    con_train_set = con_train_set.prefetch(batch_size)
+
     '''
     Tensorflow Model
     '''
-
-    source_train_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='source_train_acc')
-    source_test_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='source_test_acc')
-    temporal_test_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='temporal_test_acc')
-    office_test_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='office_test_acc')
-    server_train_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='server_train_acc')
-    server_test_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='server_test_acc')
-    conference_train_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='conference_train_acc')
-    conference_test_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='conference_test_acc')
-    cross_entropy_loss = tf.keras.metrics.Mean(name='cross_entropy_loss')
-    domain_loss = tf.keras.metrics.Mean(name='domain_loss')
+    source_train_acc = tf.keras.metrics.CategoricalAccuracy()
+    source_test_acc = tf.keras.metrics.CategoricalAccuracy()
+    temporal_test_acc = tf.keras.metrics.CategoricalAccuracy()
+    office_test_acc = tf.keras.metrics.CategoricalAccuracy()
+    server_train_acc = tf.keras.metrics.CategoricalAccuracy()
+    server_test_acc = tf.keras.metrics.CategoricalAccuracy()
+    conference_train_acc = tf.keras.metrics.CategoricalAccuracy()
+    conference_test_acc = tf.keras.metrics.CategoricalAccuracy()
+    cross_entropy_loss = tf.keras.metrics.Mean()
+    domain_loss = tf.keras.metrics.Mean()
 
     learning_rate = tf.keras.optimizers.schedules.PolynomialDecay(
         init_lr,
@@ -306,7 +317,7 @@ if __name__ == '__main__':
                        num_filters=model_filters,
                        activation=activation_fn,
                        ca_decay=ca,
-                       rev_grad=True)
+                       num_domains=4)
     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     summary_writer = tf.summary.create_file_writer(summary_writer_path)
@@ -320,9 +331,15 @@ if __name__ == '__main__':
     for epoch in range(epochs):
         m_anneal.assign(tf.minimum(m * (epoch / (epochs / anneal)), m))
         hp_lambda_anneal.assign(tf.minimum(epoch / (epochs / anneal), 1.0))
-        for source_data, server_data in zip(src_train_set, server_train_set):
-            train_step(source_data[0], source_data[1], server_data[0],
-                       server_data[1], s, m_anneal, hp_lambda_anneal)
+        for src_data, trg_data, ser_data, con_data in zip(src_train_set,
+                                                          trg_train_set,
+                                                          ser_train_set,
+                                                          con_train_set):
+            train_step(src_data[0], src_data[1],
+                       trg_data[0], trg_data[1],
+                       ser_data[0], ser_data[1],
+                       con_data[0], con_data[1],
+                       s, m_anneal, hp_lambda_anneal)
 
         pred_labels = []
         for data in time_test_set:

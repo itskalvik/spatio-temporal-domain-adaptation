@@ -309,7 +309,6 @@ def get_trg_data(filename, src_classes, train_trg_days, test_all=False):
     #split days of data to train and test
     X_train_trg = X_data_trg[y_data_trg[:, 1] < train_trg_days]
     y_train_trg = y_data_trg[y_data_trg[:, 1] < train_trg_days, 0]
-    y_train_trg_day = y_data_trg[y_data_trg[:, 1] < train_trg_days, 1]
     y_train_trg = np.array([
         src_classes.index(trg_classes[y_train_trg[i]])
         for i in range(y_train_trg.shape[0])
@@ -318,7 +317,6 @@ def get_trg_data(filename, src_classes, train_trg_days, test_all=False):
     test_days = 0 if test_all else 3
     X_test_trg = X_data_trg[y_data_trg[:, 1] >= test_days]
     y_test_trg = y_data_trg[y_data_trg[:, 1] >= test_days, 0]
-    y_test_trg_day = y_data_trg[y_data_trg[:, 1] >= test_days, 1]
     y_test_trg = np.array([
         src_classes.index(trg_classes[y_test_trg[i]])
         for i in range(y_test_trg.shape[0])
@@ -342,4 +340,4 @@ def get_trg_data(filename, src_classes, train_trg_days, test_all=False):
     X_test_trg = X_test_trg.astype(np.float32)
     y_test_trg = y_test_trg.astype(np.uint8)
 
-    return X_train_trg, y_train_trg, y_train_trg_day, X_test_trg, y_test_trg, y_test_trg_day
+    return X_train_trg, y_train_trg, X_test_trg, y_test_trg

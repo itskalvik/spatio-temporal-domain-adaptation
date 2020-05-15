@@ -179,13 +179,13 @@ if __name__ == '__main__':
     X_test_trg = X_test_trg.astype(np.float32)
     y_test_trg = y_test_trg.astype(np.uint8)
 
-    X_train_conf, y_train_conf, _, X_test_conf, y_test_conf, _ = get_trg_data(
+    X_train_conf, y_train_conf, X_test_conf, y_test_conf = get_trg_data(
         os.path.join(dataset_path, 'target_conf_data.h5'), classes,
         train_conference_days)
-    X_train_server, y_train_server, _, X_test_server, y_test_server, _ = get_trg_data(
+    X_train_server, y_train_server, X_test_server, y_test_server = get_trg_data(
         os.path.join(dataset_path, 'target_server_data.h5'), classes,
         train_server_days)
-    _, _, _, X_data_office, y_data_office, _ = get_trg_data(os.path.join(
+    _, _, X_data_office, y_data_office = get_trg_data(os.path.join(
         dataset_path, 'target_office_data.h5'),
                                                       classes,
                                                       0,
@@ -245,24 +245,15 @@ if __name__ == '__main__':
     '''
     Tensorflow Model
     '''
-
-    source_train_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='source_train_acc')
-    source_test_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='source_test_acc')
-    temporal_test_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='temporal_test_acc')
-    office_test_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='office_test_acc')
-    server_train_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='server_train_acc')
-    server_test_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='server_test_acc')
-    conference_train_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='conference_train_acc')
-    conference_test_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='conference_test_acc')
-    cross_entropy_loss = tf.keras.metrics.Mean(name='cross_entropy_loss')
+    source_train_acc = tf.keras.metrics.CategoricalAccuracy()
+    source_test_acc = tf.keras.metrics.CategoricalAccuracy()
+    temporal_test_acc = tf.keras.metrics.CategoricalAccuracy()
+    office_test_acc = tf.keras.metrics.CategoricalAccuracy()
+    server_train_acc = tf.keras.metrics.CategoricalAccuracy()
+    server_test_acc = tf.keras.metrics.CategoricalAccuracy()
+    conference_train_acc = tf.keras.metrics.CategoricalAccuracy()
+    conference_test_acc = tf.keras.metrics.CategoricalAccuracy()
+    cross_entropy_loss = tf.keras.metrics.Mean()
 
     learning_rate = tf.keras.optimizers.schedules.PolynomialDecay(
         init_lr,
