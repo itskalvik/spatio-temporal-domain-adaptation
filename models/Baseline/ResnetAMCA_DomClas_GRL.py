@@ -3,7 +3,7 @@ repo_path = os.getenv('MMWAVE_PATH')
 import sys
 sys.path.append(os.path.join(repo_path, 'models'))
 from utils import *
-from resnet_amca_dom import ResNetAMCA, AM_logits
+from resnet_amca import ResNetAMCA, AM_logits
 import tensorflow as tf
 import numpy as np
 import argparse
@@ -37,6 +37,7 @@ def get_parser():
     parser.add_argument('--ca', type=float, default=1e-3)
     parser.add_argument('--dm_lambda', type=float, default=1e-4)
     parser.add_argument('--log_dir', default="logs/Baselines/AMCA_DomClas/")
+    parser.add_argument('--disc_hidden', type=int, default=128)
     parser.add_argument('--notes', default="AMCA_STDomClas_GRL_Baseline")
     return parser
 
@@ -58,6 +59,67 @@ def get_cross_entropy_loss(labels, logits):
 def test_step(images):
     logits, _ = model(images, training=False)
     return tf.nn.softmax(logits)
+
+
+@tf.custom_gradient
+def reverse_gradient(x, hp_lambda):
+    def custom_grad(dy):
+        return tf.math.multiply(tf.negative(dy), hp_lambda), None
+    return x, custom_grad
+
+class GradientReversal(tf.keras.layers.Layer):
+
+    def __init__(self):
+        super().__init__()
+
+    def call(self, inputs, lambda_hp):
+        return reverse_gradient(inputs, lambda_hp)
+
+
+class ResNetAMCADomClas(ResNetAMCA):
+    def __init__(self,
+                 num_classes,
+                 num_features,
+                 num_filters=64,
+                 activation='relu',
+                 regularizer='batchnorm',
+                 dropout_rate=0,
+                 ca_decay=1e-3,
+                 disc_hidden=128,
+                 num_domains=4):
+        super().__init__(num_classes,
+                          num_features,
+                          num_filters,
+                          activation,
+                          regularizer,
+                          dropout_rate,
+                          ca_decay)
+
+        self.rev_grad = GradientReversal()
+        self.disc = []
+        self.disc.append(tf.keras.layers.Dense(disc_hidden,
+                                               activation=activation))
+        self.disc.append(tf.keras.layers.Dense(num_domains, name='disc_logits'))
+
+    def call(self, x, training=False, hp_lambda=0.0):
+        x = self.conv1(x)
+        x = self.bn1(x, training=training)
+        x = self.act1(x)
+        x = self.max_pool1(x)
+
+        for block in self.blocks:
+            x = block(x, training=training)
+
+        x = self.avg_pool(x)
+
+        fc1 = self.fc1(x)
+        logits = self.logits(fc1)
+
+        disc = self.rev_grad(x, hp_lambda)
+        for dense in self.disc:
+            disc = dense(disc)
+
+        return logits, disc
 
 
 @tf.function
@@ -132,6 +194,7 @@ if __name__ == '__main__':
     activation_fn = arg.activation_fn
     model_filters = arg.model_filters
     anneal = arg.anneal
+    disc_hidden = arg.disc_hidden
     s = arg.s
     m = arg.m
     ca = arg.ca
@@ -139,6 +202,11 @@ if __name__ == '__main__':
     dm_lambda = arg.dm_lambda
 
     run_params = dict(vars(arg))
+    del run_params['num_classes']
+    del run_params['s']
+    del run_params['anneal']
+    del run_params['ca']
+    del run_params['activation_fn']
     del run_params['log_images_freq']
     del run_params['log_dir']
     del run_params['checkpoint_path']
@@ -158,6 +226,7 @@ if __name__ == '__main__':
     save_arg(arg)
     shutil.copy2(inspect.getfile(ResNetAMCA), arg.log_dir)
     shutil.copy2(os.path.abspath(__file__), arg.log_dir)
+    
     '''
     Data Preprocessing
     '''
@@ -310,12 +379,13 @@ if __name__ == '__main__':
         decay_steps=(X_train_src.shape[0] // batch_size) * 200,
         end_learning_rate=init_lr * 1e-2,
         cycle=True)
-    model = ResNetAMCA(num_classes,
-                       num_features,
-                       num_filters=model_filters,
-                       activation=activation_fn,
-                       ca_decay=ca,
-                       num_domains=4)
+    model = ResNetAMCADomClas(num_classes,
+                              num_features,
+                              num_filters=model_filters,
+                              activation=activation_fn,
+                              ca_decay=ca,
+                              disc_hidden=disc_hidden,
+                              num_domains=4)
     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     summary_writer = tf.summary.create_file_writer(summary_writer_path)
