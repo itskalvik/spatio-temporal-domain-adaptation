@@ -100,8 +100,6 @@ def train_step(src_images,
                                    trg_dom_logits,
                                    srv_dom_logits,
                                    con_dom_logits], axis=0)
-        domain_logits = AM_logits(labels=domain_labels,
-                                  logits=domain_logits, m=m, s=s)
         batch_domain_loss = get_cross_entropy_loss(labels=domain_labels,
                                                    logits=domain_logits)
 
