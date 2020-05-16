@@ -23,10 +23,10 @@ def get_parser():
     parser.add_argument('--activation_fn', default='selu')
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--num_classes', type=int, default=10)
-    parser.add_argument('--train_source_days', type=int, default=3)
-    parser.add_argument('--train_source_unlabeled_days', type=int, default=0)
-    parser.add_argument('--train_server_days', type=int, default=0)
-    parser.add_argument('--train_conference_days', type=int, default=0)
+    parser.add_argument('--train_src_days', type=int, default=3)
+    parser.add_argument('--train_trg_days', type=int, default=0)
+    parser.add_argument('--train_ser_days', type=int, default=0)
+    parser.add_argument('--train_con_days', type=int, default=0)
     parser.add_argument('--save_freq', type=int, default=25)
     parser.add_argument('--log_images_freq', type=int, default=25)
     parser.add_argument('--checkpoint_path', default="checkpoints")
@@ -123,10 +123,10 @@ if __name__ == '__main__':
     dataset_path = os.path.join(repo_path, 'data')
     num_classes = arg.num_classes
     batch_size = arg.batch_size
-    train_source_days = arg.train_source_days
-    train_server_days = arg.train_server_days
-    train_conference_days = arg.train_conference_days
-    train_source_unlabeled_days = arg.train_source_unlabeled_days
+    train_src_days = arg.train_src_days
+    train_ser_days = arg.train_ser_days
+    train_con_days = arg.train_con_days
+    train_trg_days = arg.train_trg_days
     save_freq = arg.save_freq
     epochs = arg.epochs
     init_lr = arg.init_lr
@@ -163,6 +163,7 @@ if __name__ == '__main__':
     save_arg(arg)
     shutil.copy2(inspect.getfile(ResNetAMCA), arg.log_dir)
     shutil.copy2(os.path.abspath(__file__), arg.log_dir)
+
     '''
     Data Preprocessing
     '''
@@ -175,24 +176,24 @@ if __name__ == '__main__':
                                      max_samples_per_class=95)
 
     #split days of data to train and test
-    X_src = X_data[y_data[:, 1] < train_source_days]
-    y_src = y_data[y_data[:, 1] < train_source_days, 0]
+    X_src = X_data[y_data[:, 1] < train_src_days]
+    y_src = y_data[y_data[:, 1] < train_src_days, 0]
     y_src = np.eye(len(classes))[y_src]
     X_train_src, X_test_src, y_train_src, y_test_src = train_test_split(
         X_src, y_src, stratify=y_src, test_size=0.10, random_state=42)
 
-    X_trg = X_data[y_data[:, 1] >= train_source_days]
-    y_trg = y_data[y_data[:, 1] >= train_source_days]
-    X_train_trg = X_trg[y_trg[:, 1] < train_source_days +
-                        train_source_unlabeled_days]
-    y_train_trg = y_trg[y_trg[:, 1] < train_source_days +
-                        train_source_unlabeled_days, 0]
+    X_trg = X_data[y_data[:, 1] >= train_src_days]
+    y_trg = y_data[y_data[:, 1] >= train_src_days]
+    X_train_trg = X_trg[y_trg[:, 1] < train_src_days +
+                        train_trg_days]
+    y_train_trg = y_trg[y_trg[:, 1] < train_src_days +
+                        train_trg_days, 0]
     y_train_trg = np.eye(len(classes))[y_train_trg]
 
-    X_test_trg = X_data[y_data[:, 1] >= train_source_days +
-                        train_source_unlabeled_days]
-    y_test_trg = y_data[y_data[:, 1] >= train_source_days +
-                        train_source_unlabeled_days, 0]
+    X_test_trg = X_data[y_data[:, 1] >= train_src_days +
+                        train_trg_days]
+    y_test_trg = y_data[y_data[:, 1] >= train_src_days +
+                        train_trg_days, 0]
     y_test_trg = np.eye(len(classes))[y_test_trg]
 
     del X_src, y_src, X_trg, y_trg, X_data, y_data
@@ -225,10 +226,10 @@ if __name__ == '__main__':
 
     X_train_conf, y_train_conf, X_test_conf, y_test_conf = get_trg_data(
         os.path.join(dataset_path, 'target_conf_data.h5'), classes,
-        train_conference_days)
+        train_con_days)
     X_train_server, y_train_server, X_test_server, y_test_server = get_trg_data(
         os.path.join(dataset_path, 'target_server_data.h5'), classes,
-        train_server_days)
+        train_ser_days)
     _, _, X_data_office, y_data_office = get_trg_data(os.path.join(
         dataset_path, 'target_office_data.h5'),
                                                       classes,
@@ -272,50 +273,35 @@ if __name__ == '__main__':
     time_test_set = time_test_set.prefetch(batch_size)
 
     #Train
+    if train_con_days > 0:
+        X_train_src = np.concatenate([X_train_src, X_train_conf], axis=0)
+        y_train_src = np.concatenate([y_train_src, y_train_conf], axis=0)
+
+    if train_ser_days > 0:
+        X_train_src = np.concatenate([X_train_src, X_train_server], axis=0)
+        y_train_src = np.concatenate([y_train_src, y_train_server], axis=0)
+
     src_train_set = tf.data.Dataset.from_tensor_slices(
         (X_train_src, y_train_src))
     src_train_set = src_train_set.shuffle(X_train_src.shape[0])
     src_train_set = src_train_set.batch(batch_size, drop_remainder=True)
     src_train_set = src_train_set.prefetch(batch_size)
 
-    if train_conference_days > 0:
-        conf_train_set = tf.data.Dataset.from_tensor_slices(
-            (X_train_conf, y_train_conf))
-        conf_train_set = conf_train_set.shuffle(X_train_conf.shape[0])
-        conf_train_set = conf_train_set.batch(batch_size, drop_remainder=True)
-        conf_train_set = conf_train_set.prefetch(batch_size)
-
-    if train_server_days > 0:
-        server_train_set = tf.data.Dataset.from_tensor_slices(
-            (X_train_server, y_train_server))
-        server_train_set = server_train_set.shuffle(X_train_server.shape[0])
-        server_train_set = server_train_set.batch(batch_size,
-                                                  drop_remainder=True)
-        server_train_set = server_train_set.prefetch(batch_size)
     '''
     Tensorflow Model
     '''
 
-    source_train_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='source_train_acc')
-    source_test_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='source_test_acc')
-    temporal_test_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='temporal_test_acc')
-    office_test_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='office_test_acc')
-    server_train_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='server_train_acc')
-    server_test_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='server_test_acc')
-    conference_train_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='conference_train_acc')
-    conference_test_acc = tf.keras.metrics.CategoricalAccuracy(
-        name='conference_test_acc')
-    cross_entropy_loss = tf.keras.metrics.Mean(name='cross_entropy_loss')
-    VAT_cross_entropy_loss = tf.keras.metrics.Mean(
-        name='VAT_cross_entropy_loss')
-    total_loss = tf.keras.metrics.Mean(name='total_loss')
+    source_train_acc = tf.keras.metrics.CategoricalAccuracy()
+    source_test_acc = tf.keras.metrics.CategoricalAccuracy()
+    temporal_test_acc = tf.keras.metrics.CategoricalAccuracy()
+    office_test_acc = tf.keras.metrics.CategoricalAccuracy()
+    server_train_acc = tf.keras.metrics.CategoricalAccuracy()
+    server_test_acc = tf.keras.metrics.CategoricalAccuracy()
+    conference_train_acc = tf.keras.metrics.CategoricalAccuracy()
+    conference_test_acc = tf.keras.metrics.CategoricalAccuracy()
+    cross_entropy_loss = tf.keras.metrics.Mean()
+    VAT_cross_entropy_loss = tf.keras.metrics.Mean()
+    total_loss = tf.keras.metrics.Mean()
 
     learning_rate = tf.keras.optimizers.schedules.PolynomialDecay(
         init_lr,
