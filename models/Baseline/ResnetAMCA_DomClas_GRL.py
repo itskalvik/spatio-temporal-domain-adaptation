@@ -153,12 +153,12 @@ def train_step(src_images,
         batch_cross_entropy_loss = get_cross_entropy_loss(labels=src_labels,
                                                           logits=src_logits)
 
-        domain_logits = tf.concat([tf.one_hot(tf.zeros(batch_size, dtype=tf.uint8), 4),
+        domain_labels = tf.concat([tf.one_hot(tf.zeros(batch_size, dtype=tf.uint8), 4),
                                    tf.one_hot(tf.ones(batch_size, dtype=tf.uint8), 4),
                                    tf.one_hot(tf.ones(batch_size, dtype=tf.uint8)*2, 4),
                                    tf.one_hot(tf.ones(batch_size, dtype=tf.uint8)*3, 4)],
                                    axis=0)
-        domain_labels = tf.concat([src_dom_logits,
+        domain_logits = tf.concat([src_dom_logits,
                                    trg_dom_logits,
                                    srv_dom_logits,
                                    con_dom_logits], axis=0)
@@ -226,7 +226,7 @@ if __name__ == '__main__':
     save_arg(arg)
     shutil.copy2(inspect.getfile(ResNetAMCA), arg.log_dir)
     shutil.copy2(os.path.abspath(__file__), arg.log_dir)
-    
+
     '''
     Data Preprocessing
     '''
