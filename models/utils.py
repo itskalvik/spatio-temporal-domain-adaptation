@@ -60,7 +60,6 @@ def plot_confusion_matrix(cm, class_names):
 
 
 class anneal():
-
     def __init__(self, init_val, final_val, delta=5):
         self.init_val = tf.constant(init_val, dtype="float32")
         self.final_val = tf.constant(final_val, dtype="float32")
@@ -78,7 +77,6 @@ Center Loss
 
 
 class CenterLoss():
-
     def __init__(self, batch_size, num_classes, len_features, alpha):
         self.centers = tf.Variable(tf.zeros([num_classes, len_features]),
                                    dtype=tf.float32,
@@ -174,8 +172,14 @@ def cutmix(x, y, alpha=1):
     channels = shape[3]
 
     lam = np.random.beta(alpha, alpha)
-    cx = tf.random.uniform(shape=[], minval=0, maxval=image_w, dtype=tf.float32)
-    cy = tf.random.uniform(shape=[], minval=0, maxval=image_h, dtype=tf.float32)
+    cx = tf.random.uniform(shape=[],
+                           minval=0,
+                           maxval=image_w,
+                           dtype=tf.float32)
+    cy = tf.random.uniform(shape=[],
+                           minval=0,
+                           maxval=image_h,
+                           dtype=tf.float32)
     w = image_w * tf.sqrt(1 - lam)
     h = image_h * tf.sqrt(1 - lam)
 
@@ -239,11 +243,11 @@ def balance_dataset(X_data,
     for day in range(num_days):
         for idx in range(num_classes):
             X_data_tmp.extend(
-                X_data[(y_data[:, 0] == idx) &
-                       (y_data[:, 1] == day)][:max_samples_per_class])
+                X_data[(y_data[:, 0] == idx)
+                       & (y_data[:, 1] == day)][:max_samples_per_class])
             y_data_tmp.extend(
-                y_data[(y_data[:, 0] == idx) &
-                       (y_data[:, 1] == day)][:max_samples_per_class])
+                y_data[(y_data[:, 0] == idx)
+                       & (y_data[:, 1] == day)][:max_samples_per_class])
     return np.array(X_data_tmp), np.array(y_data_tmp)
 
 

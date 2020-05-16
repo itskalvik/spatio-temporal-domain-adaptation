@@ -17,7 +17,6 @@ Returns:
 
 
 class IdentityBlock(tf.keras.Model):
-
     def __init__(self,
                  kernel_size,
                  filters,
@@ -107,7 +106,6 @@ Returns:
 
 
 class ConvBlock(tf.keras.Model):
-
     def __init__(self,
                  kernel_size,
                  filters,
@@ -212,7 +210,6 @@ Returns:
 
 
 class ResNet50(tf.keras.Model):
-
     def __init__(self,
                  num_classes,
                  num_features,

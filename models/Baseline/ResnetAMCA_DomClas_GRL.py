@@ -51,7 +51,8 @@ def save_arg(arg):
 
 
 def get_cross_entropy_loss(labels, logits):
-    loss = tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=logits)
+    loss = tf.nn.softmax_cross_entropy_with_logits(labels=labels,
+                                                   logits=logits)
     return tf.reduce_mean(loss)
 
 
@@ -65,10 +66,11 @@ def test_step(images):
 def reverse_gradient(x, hp_lambda):
     def custom_grad(dy):
         return tf.math.multiply(tf.negative(dy), hp_lambda), None
+
     return x, custom_grad
 
-class GradientReversal(tf.keras.layers.Layer):
 
+class GradientReversal(tf.keras.layers.Layer):
     def __init__(self):
         super().__init__()
 
@@ -87,19 +89,15 @@ class ResNetAMCADomClas(ResNetAMCA):
                  ca_decay=1e-3,
                  disc_hidden=128,
                  num_domains=4):
-        super().__init__(num_classes,
-                          num_features,
-                          num_filters,
-                          activation,
-                          regularizer,
-                          dropout_rate,
-                          ca_decay)
+        super().__init__(num_classes, num_features, num_filters, activation,
+                         regularizer, dropout_rate, ca_decay)
 
         self.rev_grad = GradientReversal()
         self.disc = []
-        self.disc.append(tf.keras.layers.Dense(disc_hidden,
-                                               activation=activation))
-        self.disc.append(tf.keras.layers.Dense(num_domains, name='disc_logits'))
+        self.disc.append(
+            tf.keras.layers.Dense(disc_hidden, activation=activation))
+        self.disc.append(tf.keras.layers.Dense(num_domains,
+                                               name='disc_logits'))
 
     def call(self, x, training=False, hp_lambda=0.0):
         x = self.conv1(x)
@@ -148,20 +146,20 @@ def train_step(src_images,
                                            training=True,
                                            hp_lambda=hp_lambda)
 
-        src_logits = AM_logits(labels=src_labels,
-                               logits=src_logits, m=m, s=s)
+        src_logits = AM_logits(labels=src_labels, logits=src_logits, m=m, s=s)
         batch_cross_entropy_loss = get_cross_entropy_loss(labels=src_labels,
                                                           logits=src_logits)
 
-        domain_labels = tf.concat([tf.one_hot(tf.zeros(batch_size, dtype=tf.uint8), 4),
-                                   tf.one_hot(tf.ones(batch_size, dtype=tf.uint8), 4),
-                                   tf.one_hot(tf.ones(batch_size, dtype=tf.uint8)*2, 4),
-                                   tf.one_hot(tf.ones(batch_size, dtype=tf.uint8)*3, 4)],
-                                   axis=0)
-        domain_logits = tf.concat([src_dom_logits,
-                                   trg_dom_logits,
-                                   srv_dom_logits,
-                                   con_dom_logits], axis=0)
+        domain_labels = tf.concat([
+            tf.one_hot(tf.zeros(batch_size, dtype=tf.uint8), 4),
+            tf.one_hot(tf.ones(batch_size, dtype=tf.uint8), 4),
+            tf.one_hot(tf.ones(batch_size, dtype=tf.uint8) * 2, 4),
+            tf.one_hot(tf.ones(batch_size, dtype=tf.uint8) * 3, 4)
+        ],
+                                  axis=0)
+        domain_logits = tf.concat(
+            [src_dom_logits, trg_dom_logits, srv_dom_logits, con_dom_logits],
+            axis=0)
         batch_domain_loss = get_cross_entropy_loss(labels=domain_labels,
                                                    logits=domain_logits)
 
@@ -214,9 +212,10 @@ if __name__ == '__main__':
     del run_params['save_freq']
     sorted(run_params)
 
-    run_params = str(run_params).replace(" ", "").replace("'",
-                                                          "").replace(",",
-                                                                      "-")[1:-1]
+    run_params = str(run_params).replace(" ",
+                                         "").replace("'",
+                                                     "").replace(",",
+                                                                 "-")[1:-1]
     log_dir = os.path.join(repo_path, arg.log_dir, run_params)
     arg.log_dir = log_dir
 
@@ -226,7 +225,6 @@ if __name__ == '__main__':
     save_arg(arg)
     shutil.copy2(inspect.getfile(ResNetAMCA), arg.log_dir)
     shutil.copy2(os.path.abspath(__file__), arg.log_dir)
-
     '''
     Data Preprocessing
     '''
@@ -247,16 +245,12 @@ if __name__ == '__main__':
 
     X_trg = X_data[y_data[:, 1] >= train_src_days]
     y_trg = y_data[y_data[:, 1] >= train_src_days]
-    X_train_trg = X_trg[y_trg[:, 1] < train_src_days +
-                        train_trg_days]
-    y_train_trg = y_trg[y_trg[:, 1] < train_src_days +
-                        train_trg_days, 0]
+    X_train_trg = X_trg[y_trg[:, 1] < train_src_days + train_trg_days]
+    y_train_trg = y_trg[y_trg[:, 1] < train_src_days + train_trg_days, 0]
     y_train_trg = np.eye(len(classes))[y_train_trg]
 
-    X_test_trg = X_data[y_data[:, 1] >= train_src_days +
-                        train_trg_days]
-    y_test_trg = y_data[y_data[:, 1] >= train_src_days +
-                        train_trg_days, 0]
+    X_test_trg = X_data[y_data[:, 1] >= train_src_days + train_trg_days]
+    y_test_trg = y_data[y_data[:, 1] >= train_src_days + train_trg_days, 0]
     y_test_trg = np.eye(len(classes))[y_test_trg]
 
     del X_src, y_src, X_trg, y_trg, X_data, y_data
@@ -331,7 +325,8 @@ if __name__ == '__main__':
     src_test_set = src_test_set.batch(batch_size, drop_remainder=False)
     src_test_set = src_test_set.prefetch(batch_size)
 
-    time_test_set = tf.data.Dataset.from_tensor_slices((X_test_trg, y_test_trg))
+    time_test_set = tf.data.Dataset.from_tensor_slices(
+        (X_test_trg, y_test_trg))
     time_test_set = time_test_set.batch(batch_size, drop_remainder=False)
     time_test_set = time_test_set.prefetch(batch_size)
 
@@ -359,11 +354,10 @@ if __name__ == '__main__':
     con_train_set = con_train_set.shuffle(X_train_conf.shape[0])
     con_train_set = con_train_set.batch(batch_size, drop_remainder=True)
     con_train_set = con_train_set.prefetch(batch_size)
-
     '''
     Tensorflow Model
     '''
-    
+
     source_train_acc = tf.keras.metrics.CategoricalAccuracy()
     source_test_acc = tf.keras.metrics.CategoricalAccuracy()
     temporal_test_acc = tf.keras.metrics.CategoricalAccuracy()
@@ -400,15 +394,11 @@ if __name__ == '__main__':
     for epoch in range(epochs):
         m_anneal.assign(tf.minimum(m * (epoch / (epochs / anneal)), m))
         hp_lambda_anneal.assign(tf.minimum(epoch / (epochs / anneal), 1.0))
-        for src_data, trg_data, ser_data, con_data in zip(src_train_set,
-                                                          trg_train_set,
-                                                          ser_train_set,
-                                                          con_train_set):
-            train_step(src_data[0], src_data[1],
-                       trg_data[0], trg_data[1],
-                       ser_data[0], ser_data[1],
-                       con_data[0], con_data[1],
-                       s, m_anneal, hp_lambda_anneal)
+        for src_data, trg_data, ser_data, con_data in zip(
+                src_train_set, trg_train_set, ser_train_set, con_train_set):
+            train_step(src_data[0], src_data[1], trg_data[0], trg_data[1],
+                       ser_data[0], ser_data[1], con_data[0], con_data[1], s,
+                       m_anneal, hp_lambda_anneal)
 
         pred_labels = []
         for data in time_test_set:

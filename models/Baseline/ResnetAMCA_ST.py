@@ -50,7 +50,8 @@ def save_arg(arg):
 
 
 def get_cross_entropy_loss(labels, logits):
-    loss = tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=logits)
+    loss = tf.nn.softmax_cross_entropy_with_logits(labels=labels,
+                                                   logits=logits)
     return tf.reduce_mean(loss)
 
 
@@ -122,9 +123,10 @@ if __name__ == '__main__':
     del run_params['save_freq']
     sorted(run_params)
 
-    run_params = str(run_params).replace(" ", "").replace("'",
-                                                          "").replace(",",
-                                                                      "-")[1:-1]
+    run_params = str(run_params).replace(" ",
+                                         "").replace("'",
+                                                     "").replace(",",
+                                                                 "-")[1:-1]
     log_dir = os.path.join(repo_path, arg.log_dir, run_params)
     arg.log_dir = log_dir
 
@@ -134,7 +136,6 @@ if __name__ == '__main__':
     save_arg(arg)
     shutil.copy2(inspect.getfile(ResNetAMCA), arg.log_dir)
     shutil.copy2(os.path.abspath(__file__), arg.log_dir)
-
     '''
     Data Preprocessing
     '''
@@ -155,16 +156,12 @@ if __name__ == '__main__':
 
     X_trg = X_data[y_data[:, 1] >= train_src_days]
     y_trg = y_data[y_data[:, 1] >= train_src_days]
-    X_train_trg = X_trg[y_trg[:, 1] < train_src_days +
-                        train_trg_days]
-    y_train_trg = y_trg[y_trg[:, 1] < train_src_days +
-                        train_trg_days, 0]
+    X_train_trg = X_trg[y_trg[:, 1] < train_src_days + train_trg_days]
+    y_train_trg = y_trg[y_trg[:, 1] < train_src_days + train_trg_days, 0]
     y_train_trg = np.eye(len(classes))[y_train_trg]
 
-    X_test_trg = X_data[y_data[:, 1] >= train_src_days +
-                        train_trg_days]
-    y_test_trg = y_data[y_data[:, 1] >= train_src_days +
-                        train_trg_days, 0]
+    X_test_trg = X_data[y_data[:, 1] >= train_src_days + train_trg_days]
+    y_test_trg = y_data[y_data[:, 1] >= train_src_days + train_trg_days, 0]
     y_test_trg = np.eye(len(classes))[y_test_trg]
 
     del X_src, y_src, X_trg, y_trg, X_data, y_data
@@ -239,7 +236,8 @@ if __name__ == '__main__':
     src_test_set = src_test_set.batch(batch_size, drop_remainder=False)
     src_test_set = src_test_set.prefetch(batch_size)
 
-    time_test_set = tf.data.Dataset.from_tensor_slices((X_test_trg, y_test_trg))
+    time_test_set = tf.data.Dataset.from_tensor_slices(
+        (X_test_trg, y_test_trg))
     time_test_set = time_test_set.batch(batch_size, drop_remainder=False)
     time_test_set = time_test_set.prefetch(batch_size)
 
@@ -257,7 +255,6 @@ if __name__ == '__main__':
     src_train_set = src_train_set.shuffle(X_train_src.shape[0])
     src_train_set = src_train_set.batch(batch_size, drop_remainder=True)
     src_train_set = src_train_set.prefetch(batch_size)
-
     '''
     Tensorflow Model
     '''
@@ -312,8 +309,9 @@ if __name__ == '__main__':
                                                           drop_remainder=True)
                 server_train_set = server_train_set.prefetch(batch_size)
 
-                cm = confusion_matrix(np.argmax(y_train_server, axis=-1),
-                                      np.argmax(y_pseudo_train_server, axis=-1))
+                cm = confusion_matrix(
+                    np.argmax(y_train_server, axis=-1),
+                    np.argmax(y_pseudo_train_server, axis=-1))
                 cm_image = plot_to_image(
                     plot_confusion_matrix(cm, class_names=classes))
                 with summary_writer.as_default():

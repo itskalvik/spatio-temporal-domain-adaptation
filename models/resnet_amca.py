@@ -8,14 +8,14 @@ BATCH_NORM_EPSILON = 1e-5
 
 
 class ConstrictiveRegularizer(tf.keras.regularizers.Regularizer):
-
     def __init__(self, scale):
         super().__init__()
         self.scale = scale
 
     def __call__(self, x):
         l2_norm = tf.reduce_sum(tf.square(x), axis=0)
-        regularization = tf.reduce_mean(l2_norm - tf.reduce_mean(l2_norm)) / 4.0
+        regularization = tf.reduce_mean(l2_norm -
+                                        tf.reduce_mean(l2_norm)) / 4.0
         return self.scale * regularization
 
 
@@ -32,7 +32,6 @@ Returns:
 
 
 class AMDense(tf.keras.layers.Layer):
-
     def __init__(self,
                  units,
                  kernel_initializer='glorot_uniform',
@@ -70,7 +69,6 @@ Returns:
 
 
 class IdentityBlock(tf.keras.Model):
-
     def __init__(self,
                  kernel_size,
                  filters,
@@ -160,7 +158,6 @@ Returns:
 
 
 class ConvBlock(tf.keras.Model):
-
     def __init__(self,
                  kernel_size,
                  filters,
@@ -265,7 +262,6 @@ Returns:
 
 
 class ResNetAMCA(tf.keras.Model):
-
     def __init__(self,
                  num_classes,
                  num_features,
