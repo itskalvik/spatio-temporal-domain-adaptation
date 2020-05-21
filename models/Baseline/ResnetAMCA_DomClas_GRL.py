@@ -121,17 +121,18 @@ class ResNetAMCADomClas(ResNetAMCA):
 
 
 @tf.function
-def train_step(src_images,
-               src_labels,
-               trg_images,
-               trg_labels,
-               srv_images,
-               srv_labels,
-               con_images,
-               con_labels,
+def train_step(src_data,
+               trg_data,
+               srv_data,
+               con_data,
                s,
                m,
                hp_lambda=0):
+    src_images, src_labels = src_data
+    trg_images, trg_labels = trg_data
+    srv_images, srv_labels = srv_data
+    con_images, con_labels = con_data
+
     with tf.GradientTape() as tape:
         src_logits, src_dom_logits = model(src_images,
                                            training=True,
@@ -341,11 +342,14 @@ if __name__ == '__main__':
     time_test_set = time_test_set.prefetch(batch_size)
 
     #Train
+    train_datasets = []
+
     src_train_set = tf.data.Dataset.from_tensor_slices(
         (X_train_src, y_train_src))
     src_train_set = src_train_set.shuffle(X_train_src.shape[0])
     src_train_set = src_train_set.batch(batch_size, drop_remainder=True)
     src_train_set = src_train_set.prefetch(batch_size)
+    train_datasets.append(src_train_set)
 
     if train_trg_days > 0:
         trg_train_set = tf.data.Dataset.from_tensor_slices(
@@ -353,6 +357,7 @@ if __name__ == '__main__':
         trg_train_set = trg_train_set.shuffle(X_train_trg.shape[0])
         trg_train_set = trg_train_set.batch(batch_size, drop_remainder=True)
         trg_train_set = trg_train_set.prefetch(batch_size)
+        train_datasets.append(trg_train_set)
 
     if train_ser_days > 0:
         ser_train_set = tf.data.Dataset.from_tensor_slices(
@@ -360,6 +365,7 @@ if __name__ == '__main__':
         ser_train_set = ser_train_set.shuffle(X_train_server.shape[0])
         ser_train_set = ser_train_set.batch(batch_size, drop_remainder=True)
         ser_train_set = ser_train_set.prefetch(batch_size)
+        train_datasets.append(ser_train_set)
 
     if train_con_days > 0:
         con_train_set = tf.data.Dataset.from_tensor_slices(
@@ -367,6 +373,7 @@ if __name__ == '__main__':
         con_train_set = con_train_set.shuffle(X_train_conf.shape[0])
         con_train_set = con_train_set.batch(batch_size, drop_remainder=True)
         con_train_set = con_train_set.prefetch(batch_size)
+        train_datasets.append(con_train_set)
 
     '''
     Tensorflow Model
@@ -408,11 +415,8 @@ if __name__ == '__main__':
     for epoch in range(epochs):
         m_anneal.assign(tf.minimum(m * (epoch / (epochs / anneal)), m))
         hp_lambda_anneal.assign(tf.minimum(epoch / (epochs / anneal), 1.0))
-        for src_data, trg_data, ser_data, con_data in zip(
-                src_train_set, trg_train_set, ser_train_set, con_train_set):
-            train_step(src_data[0], src_data[1], trg_data[0], trg_data[1],
-                       ser_data[0], ser_data[1], con_data[0], con_data[1], s,
-                       m_anneal, hp_lambda_anneal)
+        for datasets in zip(*train_datasets):
+            train_step(*datasets, s, m_anneal, hp_lambda_anneal)
 
         pred_labels = []
         for data in time_test_set:
