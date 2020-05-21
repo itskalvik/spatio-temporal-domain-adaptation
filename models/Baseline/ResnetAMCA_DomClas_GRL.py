@@ -199,6 +199,16 @@ if __name__ == '__main__':
     log_images_freq = arg.log_images_freq
     dm_lambda = arg.dm_lambda
 
+    num_domains = 0
+    if train_ser_days > 0:
+        num_domains += 1
+    if train_con_days > 0:
+        num_domains += 1
+    if train_src_days > 0:
+        num_domains += 1
+    if train_trg_days > 0:
+        num_domains += 1
+
     run_params = dict(vars(arg))
     del run_params['num_classes']
     del run_params['s']
@@ -337,23 +347,27 @@ if __name__ == '__main__':
     src_train_set = src_train_set.batch(batch_size, drop_remainder=True)
     src_train_set = src_train_set.prefetch(batch_size)
 
-    trg_train_set = tf.data.Dataset.from_tensor_slices(
-        (X_train_trg, y_train_trg))
-    trg_train_set = trg_train_set.shuffle(X_train_trg.shape[0])
-    trg_train_set = trg_train_set.batch(batch_size, drop_remainder=True)
-    trg_train_set = trg_train_set.prefetch(batch_size)
+    if train_trg_days > 0:
+        trg_train_set = tf.data.Dataset.from_tensor_slices(
+            (X_train_trg, y_train_trg))
+        trg_train_set = trg_train_set.shuffle(X_train_trg.shape[0])
+        trg_train_set = trg_train_set.batch(batch_size, drop_remainder=True)
+        trg_train_set = trg_train_set.prefetch(batch_size)
 
-    ser_train_set = tf.data.Dataset.from_tensor_slices(
-        (X_train_server, y_train_server))
-    ser_train_set = ser_train_set.shuffle(X_train_server.shape[0])
-    ser_train_set = ser_train_set.batch(batch_size, drop_remainder=True)
-    ser_train_set = ser_train_set.prefetch(batch_size)
+    if train_ser_days > 0:
+        ser_train_set = tf.data.Dataset.from_tensor_slices(
+            (X_train_server, y_train_server))
+        ser_train_set = ser_train_set.shuffle(X_train_server.shape[0])
+        ser_train_set = ser_train_set.batch(batch_size, drop_remainder=True)
+        ser_train_set = ser_train_set.prefetch(batch_size)
 
-    con_train_set = tf.data.Dataset.from_tensor_slices(
-        (X_train_conf, y_train_conf))
-    con_train_set = con_train_set.shuffle(X_train_conf.shape[0])
-    con_train_set = con_train_set.batch(batch_size, drop_remainder=True)
-    con_train_set = con_train_set.prefetch(batch_size)
+    if train_con_days > 0:
+        con_train_set = tf.data.Dataset.from_tensor_slices(
+            (X_train_conf, y_train_conf))
+        con_train_set = con_train_set.shuffle(X_train_conf.shape[0])
+        con_train_set = con_train_set.batch(batch_size, drop_remainder=True)
+        con_train_set = con_train_set.prefetch(batch_size)
+
     '''
     Tensorflow Model
     '''
@@ -380,7 +394,7 @@ if __name__ == '__main__':
                               activation=activation_fn,
                               ca_decay=ca,
                               disc_hidden=disc_hidden,
-                              num_domains=4)
+                              num_domains=num_domains)
     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     summary_writer = tf.summary.create_file_writer(summary_writer_path)
