@@ -1,5 +1,7 @@
-Spatio-Temporal Domain Adaptation for Gait Based User Recognition from Radar Data
 
-[Paper](https://github.com/kdkalvik/mmwave/blob/master/Paper/paper.pdf)
+[Paper](https://github.com/kdkalvik/spatio-temporal-domain-adaptation/blob/master/Paper/paper.pdf)
 
-[Supplementary](https://github.com/kdkalvik/mmwave/blob/master/Paper/Supplementary.pdf)
+[Supplementary](https://github.com/kdkalvik/spatio-temporal-domain-adaptation/blob/master/Paper/Supplementary.pdf)
+
+# Spatio-Temporal Domain Adaptation for Gait Based User Recognition from Radar Data
+Radar-based biometric identification is an emerging user identification platform that exploits radar return signals to capture human biometrics (such as gait, gesture, lip motion, and cardiac motion), which can be used to predict a user's identity. Despite its unique advantages (such as privacy-preserving and resilience to weather/lighting conditions), the generalization performance of this technology is still unknown and greatly hinders its practical deployment. To address this challenge, we collect and investigate a non-synthetic dataset, which revealed the existence of distinct spatial and temporal domain shifts in radar-based gait biometric data. We show that spatio-temporal domain shifts, when not addressed jointly, can significantly degrade identification accuracy. Moreover, we propose a data-efficient yet straightforward domain shift mitigation approach for tuning deep learning models over their entire life cycle. Our approach exploits an unsupervised domain shift detector to measure the malignancy of domain shifts. Such metrics allow us to determine the domains that maximize the net contributions upon adapting to, after which an appropriate domain adaption method is utilized to improve both spatial and temporal generalization. We show that our approach improves data efficiency by reducing the number of domains that necessitate adaptation while maintaining the generalization performance of a blind approach that uses data from all domains.
